@@ -90,6 +90,59 @@ const context = {
     }
   },
   fetch: async (path) => {
+    if (path.endsWith("02-time-ai-enablers.json")) {
+      return {
+        ok: true,
+        json: async () => ({
+          archetypes: [
+            {
+              id: "lean",
+              label: "Lean",
+              sizing: "0,5-1",
+              context: "Small",
+              responsibilities: { technical: ["A"], process: ["B"], culture: ["C"] },
+              plan3090: { d30: "d30" }
+            },
+            {
+              id: "dedicado",
+              label: "Dedicado",
+              sizing: "2-3",
+              context: "Mid",
+              responsibilities: { technical: ["A"], process: ["B"], culture: ["C"] },
+              plan3090: { d30: "d30" }
+            }
+          ],
+          proficiencyLevels: [
+            { id: "l1", label: "L1", score: 1, characteristic: "c", practical: "p", gate: "g" },
+            { id: "l2", label: "L2", score: 2, characteristic: "c", practical: "p", gate: "g" }
+          ],
+          competencies: [
+            { id: "prompt_engineering", title: "Prompt", description: "d", question: "q1" },
+            { id: "output_critique", title: "Output", description: "d", question: "q2" }
+          ],
+          familiarityOptions: [
+            { id: "nao_familiar", label: "Não familiar", score: 1, description: "d" },
+            { id: "familiar", label: "Familiar", score: 2, description: "d" },
+            { id: "muito_familiar", label: "Muito familiar", score: 3, description: "d" }
+          ],
+          weights: { competencies: 0.55, proficiency: 0.25, archetypeReadiness: 0.2 },
+          archetypeReadinessRules: {
+            lean: { minProficiencyScore: 1, minCompetencyAverage: 1.5 },
+            dedicado: { minProficiencyScore: 2, minCompetencyAverage: 2.0 }
+          },
+          scoreBands: [
+            { id: "baixo", label: "Baixo", min: 0, max: 1.85, risk: "Alto", nextStep: "n1" },
+            { id: "medio", label: "Médio", min: 1.85, max: 2.45, risk: "Médio", nextStep: "n2" },
+            { id: "alto", label: "Alto", min: 2.45, max: 99, risk: "Baixo", nextStep: "n3" }
+          ],
+          recommendations: {
+            gapByCompetency: { prompt_engineering: "r1", output_critique: "r2" },
+            planHints: { lean: "pl", dedicado: "pd" }
+          }
+        })
+      };
+    }
+
     if (path.endsWith(".json")) {
       return {
         ok: true,
@@ -141,7 +194,7 @@ const context = {
 vm.createContext(context);
 vm.runInContext(scriptContent, context);
 
-const { markdownService, wizardController, WIZARD_STEPS, diagnosisService } = context.window.AIAdoptionWizard;
+const { markdownService, wizardController, WIZARD_STEPS, diagnosisService, phaseTwoService } = context.window.AIAdoptionWizard;
 
 function testMarkdownParse() {
   const html = markdownService.parseMarkdown(
@@ -274,6 +327,65 @@ function testPhaseOneGate() {
   assert(wizardController.isPhaseOneGateSatisfied(), "gate must pass with 9/9 + acknowledgment");
 }
 
+function testPhaseTwoScoreAndGate() {
+  const config = {
+    archetypes: [
+      { id: "lean", label: "Lean" },
+      { id: "dedicado", label: "Dedicado" }
+    ],
+    proficiencyLevels: [
+      { id: "l1", label: "L1", score: 1 },
+      { id: "l2", label: "L2", score: 2 }
+    ],
+    competencies: [
+      { id: "prompt_engineering", title: "Prompt" },
+      { id: "output_critique", title: "Output" }
+    ],
+    familiarityOptions: [
+      { id: "nao_familiar", label: "Não familiar", score: 1 },
+      { id: "familiar", label: "Familiar", score: 2 },
+      { id: "muito_familiar", label: "Muito familiar", score: 3 }
+    ],
+    weights: { competencies: 0.55, proficiency: 0.25, archetypeReadiness: 0.2 },
+    archetypeReadinessRules: {
+      lean: { minProficiencyScore: 1, minCompetencyAverage: 1.5 },
+      dedicado: { minProficiencyScore: 2, minCompetencyAverage: 2.0 }
+    },
+    scoreBands: [
+      { id: "baixo", label: "Baixo", min: 0, max: 1.85, risk: "Alto", nextStep: "n1" },
+      { id: "medio", label: "Médio", min: 1.85, max: 2.45, risk: "Médio", nextStep: "n2" },
+      { id: "alto", label: "Alto", min: 2.45, max: 99, risk: "Baixo", nextStep: "n3" }
+    ],
+    recommendations: {
+      gapByCompetency: { prompt_engineering: "r1", output_critique: "r2" },
+      planHints: { lean: "pl", dedicado: "pd" }
+    }
+  };
+
+  const answers = {
+    prompt_engineering: "muito_familiar",
+    output_critique: "familiar"
+  };
+  const selections = {
+    archetypeId: "dedicado",
+    proficiencyLevelId: "l2"
+  };
+  const result = phaseTwoService.calculateResult(config, answers, selections);
+
+  assert(result.answeredCount === 2, "phase 2 must count answered competencies");
+  assert(result.archetypeReadiness === 1, "phase 2 must check archetype readiness");
+  assert(result.overallBand.label === "Médio" || result.overallBand.label === "Alto", "phase 2 must classify score");
+
+  wizardController.state.phaseAnswers = { "fase-2": answers };
+  wizardController.state.phaseSelections = { "fase-2": selections };
+  wizardController.state.phaseResults = { "fase-2": result };
+  wizardController.state.phaseAcknowledged = { "fase-2": true };
+  assert(wizardController.isPhaseTwoGateSatisfied(), "phase 2 gate must pass with complete inputs and ack");
+
+  wizardController.state.phaseAcknowledged = { "fase-2": false };
+  assert(!wizardController.isPhaseTwoGateSatisfied(), "phase 2 gate must fail without ack");
+}
+
 function testCanAccessStep() {
   wizardController.state.completedSteps = new Set();
   assert(wizardController.canAccessStep(0), "must allow current phase");
@@ -304,11 +416,26 @@ function testCurrentStepCompletionReadiness() {
   assert(wizardController.isCurrentStepCompletionReady(), "phase 1 should pass with 9/9 + ack");
 
   wizardController.state.currentStep = 1;
+  wizardController.state.phaseAnswers = {
+    "fase-2": {
+      prompt_engineering: "familiar",
+      output_critique: "familiar"
+    }
+  };
+  wizardController.state.phaseSelections = {
+    "fase-2": {
+      archetypeId: "lean",
+      proficiencyLevelId: "l1"
+    }
+  };
+  wizardController.state.phaseResults = {
+    "fase-2": { answeredCount: 2, total: 2 }
+  };
   wizardController.state.phaseAcknowledged = { "fase-1": true, "fase-2": false };
   assert(!wizardController.isCurrentStepCompletionReady(), "phase 2 should require acknowledgment");
 
   wizardController.state.phaseAcknowledged["fase-2"] = true;
-  assert(wizardController.isCurrentStepCompletionReady(), "phase 2 should pass with acknowledgment");
+  assert(wizardController.isCurrentStepCompletionReady(), "phase 2 should pass with full gate");
 }
 
 function testQuestionTableRender() {
@@ -369,6 +496,7 @@ async function run() {
     testExtractSectionsSemantic,
     testDiagnosisScoreAndBottleneck,
     testPhaseOneGate,
+    testPhaseTwoScoreAndGate,
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,

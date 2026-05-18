@@ -1,6 +1,7 @@
 (() => {
   const STORAGE_KEY = "ai-adoption-data-wizard-state";
   const DIAGNOSIS_CONFIG_FILE = "content/01-diagnostico-organizacional-e-de-engenharia.json";
+  const PHASE_TWO_CONFIG_FILE = "content/02-time-ai-enablers.json";
 
   const WIZARD_STEPS = [
     {
@@ -65,6 +66,7 @@
 
   const markdownCache = new Map();
   let diagnosisConfigCache = null;
+  let phaseTwoConfigCache = null;
 
   const storageService = {
     loadState() {
@@ -83,6 +85,7 @@
           currentStep: Math.max(0, Math.min(WIZARD_STEPS.length - 1, state.currentStep)),
           completedSteps: new Set(state.completedSteps.filter((value) => Number.isInteger(value))),
           phaseAnswers: this.sanitizeStepMap(state.phaseAnswers),
+          phaseSelections: this.sanitizeStepMap(state.phaseSelections),
           phaseResults: this.sanitizeStepMap(state.phaseResults),
           phaseAcknowledged: this.sanitizeBooleanStepMap(state.phaseAcknowledged)
         };
@@ -122,6 +125,7 @@
         currentStep: state.currentStep,
         completedSteps: Array.from(state.completedSteps),
         phaseAnswers: state.phaseAnswers,
+        phaseSelections: state.phaseSelections,
         phaseResults: state.phaseResults,
         phaseAcknowledged: state.phaseAcknowledged
       };
@@ -400,6 +404,109 @@
     }
   };
 
+  const phaseTwoService = {
+    async loadConfig() {
+      if (phaseTwoConfigCache) {
+        return phaseTwoConfigCache;
+      }
+
+      const response = await fetch(PHASE_TWO_CONFIG_FILE);
+      if (!response.ok) {
+        throw new Error(`failed to load phase two config: ${PHASE_TWO_CONFIG_FILE}`);
+      }
+
+      const config = await response.json();
+      if (!Array.isArray(config.archetypes) || !Array.isArray(config.competencies)) {
+        throw new Error("invalid phase two config");
+      }
+
+      phaseTwoConfigCache = config;
+      return phaseTwoConfigCache;
+    },
+
+    calculateResult(config, answers = {}, selections = {}) {
+      const answeredCompetencies = config.competencies
+        .map((competency) => {
+          const optionId = answers[competency.id];
+          const option = config.familiarityOptions.find((item) => item.id === optionId);
+          return option
+            ? {
+              competencyId: competency.id,
+              title: competency.title,
+              score: Number(option.score),
+              optionLabel: option.label
+            }
+            : null;
+        })
+        .filter(Boolean);
+
+      const answeredCount = answeredCompetencies.length;
+      const total = config.competencies.length;
+      const competencyAverage = answeredCount
+        ? answeredCompetencies.reduce((acc, item) => acc + item.score, 0) / answeredCount
+        : 0;
+
+      const proficiency = config.proficiencyLevels.find((level) => level.id === selections.proficiencyLevelId) || null;
+      const proficiencyScore = proficiency ? Number(proficiency.score) : 0;
+      const archetype = config.archetypes.find((item) => item.id === selections.archetypeId) || null;
+      const readinessRule = archetype ? config.archetypeReadinessRules[archetype.id] : null;
+
+      const archetypeReadiness = archetype && readinessRule
+        ? Number(
+          proficiencyScore >= readinessRule.minProficiencyScore
+          && competencyAverage >= readinessRule.minCompetencyAverage
+        )
+        : 0;
+
+      const weights = config.weights || {};
+      const combinedScore =
+        (competencyAverage * Number(weights.competencies || 0))
+        + (proficiencyScore * Number(weights.proficiency || 0))
+        + (archetypeReadiness * 3 * Number(weights.archetypeReadiness || 0));
+
+      const overallBand = this.resolveBand(config.scoreBands, combinedScore);
+      const gaps = answeredCompetencies.filter((item) => item.score < 2).map((item) => item.competencyId);
+
+      return {
+        answeredCount,
+        total,
+        completion: total ? Math.round((answeredCount / total) * 100) : 0,
+        competencyAverage,
+        combinedScore,
+        overallBand,
+        archetype,
+        proficiency,
+        readinessRule,
+        archetypeReadiness,
+        competencyScores: answeredCompetencies,
+        missingCompetencies: config.competencies
+          .filter((item) => !answers[item.id])
+          .map((item) => item.title),
+        gaps
+      };
+    },
+
+    resolveBand(scoreBands, score) {
+      const matched = scoreBands.find((band) => score >= band.min && score < band.max);
+      return matched || scoreBands[scoreBands.length - 1];
+    },
+
+    buildRecommendations(config, result) {
+      const competencyRecommendations = result.gaps
+        .map((gapId) => config.recommendations?.gapByCompetency?.[gapId])
+        .filter(Boolean);
+
+      const planHint = result.archetype
+        ? config.recommendations?.planHints?.[result.archetype.id]
+        : null;
+
+      return {
+        competencyRecommendations,
+        planHint
+      };
+    }
+  };
+
   const dom = {
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
@@ -430,6 +537,7 @@
       currentStep: 0,
       completedSteps: new Set(),
       phaseAnswers: {},
+      phaseSelections: {},
       phaseResults: {},
       phaseAcknowledged: {}
     },
@@ -522,7 +630,54 @@
       if (currentStep.id === "fase-1") {
         return this.isPhaseOneGateSatisfied();
       }
+      if (currentStep.id === "fase-2") {
+        return this.isPhaseTwoGateSatisfied();
+      }
       return this.isStepAcknowledged(currentStep.id);
+    },
+
+    isPhaseTwoGateSatisfied() {
+      const result = this.state.phaseResults["fase-2"];
+      const selections = this.state.phaseSelections["fase-2"] || {};
+      const hasArchetype = Boolean(selections.archetypeId);
+      const hasProficiency = Boolean(selections.proficiencyLevelId);
+      const answeredAll = result && result.answeredCount === result.total;
+      const acknowledged = Boolean(this.state.phaseAcknowledged["fase-2"]);
+      return Boolean(hasArchetype && hasProficiency && answeredAll && acknowledged);
+    },
+
+    async getPhaseTwoMissingItems() {
+      const config = await phaseTwoService.loadConfig();
+      const answers = this.state.phaseAnswers["fase-2"] || {};
+      const selections = this.state.phaseSelections["fase-2"] || {};
+      const missingCompetencies = config.competencies
+        .filter((competency) => !answers[competency.id])
+        .map((competency) => competency.title);
+
+      return {
+        needsArchetype: !selections.archetypeId,
+        needsProficiency: !selections.proficiencyLevelId,
+        missingCompetencies,
+        needsAcknowledgment: !Boolean(this.state.phaseAcknowledged["fase-2"])
+      };
+    },
+
+    async buildPhaseTwoGateMessage() {
+      const pending = await this.getPhaseTwoMissingItems();
+      const parts = [];
+      if (pending.needsArchetype) {
+        parts.push("Selecione o arquétipo do Time AI Enablers");
+      }
+      if (pending.needsProficiency) {
+        parts.push("Selecione o nível de proficiência atual do time");
+      }
+      if (pending.missingCompetencies.length) {
+        parts.push(`Competências pendentes: ${pending.missingCompetencies.join(", ")}`);
+      }
+      if (pending.needsAcknowledgment) {
+        parts.push("Marque a confirmação de entendimento da Fase 2");
+      }
+      return parts.length ? `${parts.join(" | ")}.` : "Conclua a Fase 2 para avançar.";
     },
 
     showGateMessage(message) {
@@ -543,6 +698,7 @@
       const stepText = await markdownService.loadStepMarkdown(step);
       const sections = markdownService.extractStepSections(stepText);
       const isPhaseOne = step.id === "fase-1";
+      const isPhaseTwo = step.id === "fase-2";
 
       if (isPhaseOne) {
         dom.summaryTitle.textContent = "Objetivo da fase";
@@ -574,8 +730,12 @@
         dom.criteriaTitle.textContent = "Critérios de conclusão";
         dom.criteriaContent.innerHTML = markdownService.parseMarkdown(sections.recommendations || "Conteúdo indisponível.");
 
-        dom.diagnosisInteractive.innerHTML = "";
-        dom.diagnosisInteractive.setAttribute("hidden", "hidden");
+        if (isPhaseTwo) {
+          await this.renderPhaseTwoInteractive();
+        } else {
+          dom.diagnosisInteractive.innerHTML = "";
+          dom.diagnosisInteractive.setAttribute("hidden", "hidden");
+        }
         this.renderPhaseAcknowledgment(step);
       }
 
@@ -733,6 +893,176 @@
       `;
     },
 
+    async renderPhaseTwoInteractive() {
+      const config = await phaseTwoService.loadConfig();
+      const stepKey = "fase-2";
+      const answers = this.state.phaseAnswers[stepKey] || {};
+      const selections = this.state.phaseSelections[stepKey] || {};
+      const result = phaseTwoService.calculateResult(config, answers, selections);
+      const recommendations = phaseTwoService.buildRecommendations(config, result);
+      this.state.phaseResults[stepKey] = {
+        ...result,
+        recommendations
+      };
+
+      const isComplete = result.answeredCount === result.total && selections.archetypeId && selections.proficiencyLevelId;
+
+      dom.diagnosisInteractive.removeAttribute("hidden");
+      dom.diagnosisInteractive.innerHTML = `
+        <div class="phase-two-shell">
+          <div class="diagnosis-hero">
+            <p class="diagnosis-tag">Time AI Enablers</p>
+            <h3>Definição de perfil, capacidade e prontidão</h3>
+            <p class="phase-two-intro">
+              Selecione o arquétipo mais aderente ao tamanho da sua engenharia, avalie a familiaridade do time nas
+              competências críticas e informe o nível atual de proficiência para gerar o direcionamento da Fase 3.
+            </p>
+          </div>
+
+          <section class="phase-two-grid">
+            ${config.archetypes.map((archetype) => {
+              const selected = selections.archetypeId === archetype.id;
+              return `
+                <article class="phase-two-card${selected ? " selected" : ""}" data-archetype="${archetype.id}">
+                  <div class="phase-two-card-head">
+                    <h4>${archetype.label}</h4>
+                    <span class="phase-two-chip">${archetype.sizing}</span>
+                  </div>
+                  <p class="phase-two-context">${archetype.context}</p>
+                  <ul>
+                    <li><strong>Técnico:</strong> ${archetype.responsibilities.technical[0]}</li>
+                    <li><strong>Processo:</strong> ${archetype.responsibilities.process[0]}</li>
+                    <li><strong>Cultura:</strong> ${archetype.responsibilities.culture[0]}</li>
+                  </ul>
+                  <p class="phase-two-plan"><strong>30/60/90:</strong> ${archetype.plan3090.d30}</p>
+                  <button type="button" class="btn btn-ghost phase-two-select-btn" data-select-archetype="${archetype.id}">
+                    ${selected ? "Arquétipo selecionado" : "Selecionar arquétipo"}
+                  </button>
+                </article>
+              `;
+            }).join("")}
+          </section>
+
+          <section class="phase-two-competencies">
+            <h4>Diagnóstico de competências (4 áreas)</h4>
+            ${config.competencies.map((competency, index) => `
+              <article class="phase-two-competency-card">
+                <p class="question-index">Competência ${index + 1}</p>
+                <h5>${competency.title}</h5>
+                <p class="phase-two-context">${competency.description}</p>
+                <p class="question-text">${competency.question}</p>
+                <div class="phase-two-options">
+                  ${config.familiarityOptions.map((option) => {
+                    const checked = answers[competency.id] === option.id;
+                    return `
+                      <label class="phase-two-option${checked ? " selected" : ""}">
+                        <input
+                          type="radio"
+                          name="phase-two-${competency.id}"
+                          value="${option.id}"
+                          data-competency-id="${competency.id}"
+                          data-option-id="${option.id}"
+                          ${checked ? "checked" : ""}
+                        >
+                        <span><strong>${option.label}</strong> · ${option.description}</span>
+                      </label>
+                    `;
+                  }).join("")}
+                </div>
+              </article>
+            `).join("")}
+          </section>
+
+          <section class="phase-two-levels">
+            <h4>Matriz de proficiência atual do time</h4>
+            <div class="phase-two-level-grid">
+              ${config.proficiencyLevels.map((level) => {
+                const selected = selections.proficiencyLevelId === level.id;
+                return `
+                  <label class="phase-two-level-card${selected ? " selected" : ""}">
+                    <input
+                      type="radio"
+                      name="phase-two-level"
+                      value="${level.id}"
+                      data-proficiency-level-id="${level.id}"
+                      ${selected ? "checked" : ""}
+                    >
+                    <span class="phase-two-level-title">${level.label}</span>
+                    <span>${level.characteristic}</span>
+                    <span><strong>Critério:</strong> ${level.practical}</span>
+                    <span><strong>Gate:</strong> ${level.gate}</span>
+                  </label>
+                `;
+              }).join("")}
+            </div>
+          </section>
+
+          <section class="phase-two-report${isComplete ? "" : " locked"}">
+            <h4>Relatório pós-preenchimento</h4>
+            ${isComplete ? `
+              <p><strong>Arquétipo selecionado:</strong> ${result.archetype.label} (${result.archetype.sizing})</p>
+              <p><strong>Proficiência atual:</strong> ${result.proficiency.label}</p>
+              <p><strong>Média de competências:</strong> ${result.competencyAverage.toFixed(2)}</p>
+              <p><strong>Score combinado:</strong> ${result.combinedScore.toFixed(2)}</p>
+              <p><strong>Prontidão:</strong> ${result.overallBand.label} | <strong>Risco:</strong> ${result.overallBand.risk}</p>
+              <p><strong>Leitura de consistência:</strong> ${result.archetypeReadiness ? "Perfil consistente com o arquétipo selecionado." : "Capacidade atual abaixo do esperado para o arquétipo selecionado."}</p>
+              <p><strong>Próximo passo:</strong> ${result.overallBand.nextStep}</p>
+              <p><strong>Direcionamento do arquétipo:</strong> ${recommendations.planHint || "N/A"}</p>
+              <div class="phase-two-recommendations">
+                <h5>Lacunas prioritárias</h5>
+                ${
+                  recommendations.competencyRecommendations.length
+                    ? `<ul>${recommendations.competencyRecommendations.map((item) => `<li>${item}</li>`).join("")}</ul>`
+                    : "<p>Nenhuma lacuna crítica identificada nas competências avaliadas.</p>"
+                }
+              </div>
+            ` : `
+              <p>Complete arquétipo, proficiência e as 4 competências para gerar o relatório da Fase 2.</p>
+            `}
+          </section>
+        </div>
+      `;
+
+      dom.diagnosisInteractive.querySelectorAll("[data-select-archetype]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          const archetypeId = event.currentTarget.dataset.selectArchetype;
+          const previous = this.state.phaseSelections[stepKey] || {};
+          this.state.phaseSelections[stepKey] = {
+            ...previous,
+            archetypeId
+          };
+          this.clearGateMessage();
+          this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelectorAll("input[data-competency-id]").forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const { competencyId, optionId } = event.target.dataset;
+          const previous = this.state.phaseAnswers[stepKey] || {};
+          this.state.phaseAnswers[stepKey] = {
+            ...previous,
+            [competencyId]: optionId
+          };
+          this.clearGateMessage();
+          this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelectorAll("input[data-proficiency-level-id]").forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const proficiencyLevelId = event.target.dataset.proficiencyLevelId;
+          const previous = this.state.phaseSelections[stepKey] || {};
+          this.state.phaseSelections[stepKey] = {
+            ...previous,
+            proficiencyLevelId
+          };
+          this.clearGateMessage();
+          this.render();
+        });
+      });
+    },
+
     renderNavigation() {
       dom.stepsNav.innerHTML = WIZARD_STEPS.map((step, index) => `
         <button class="step-item" data-step-index="${index}" type="button">
@@ -793,6 +1123,10 @@
           this.showGateMessage(await this.buildPhaseOneGateMessage());
           return;
         }
+        if (missing.includes(1)) {
+          this.showGateMessage(await this.buildPhaseTwoGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[index].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
@@ -814,6 +1148,10 @@
         const missing = this.getMissingDependencies(nextStepIndex);
         if (missing.includes(0)) {
           this.showGateMessage(await this.buildPhaseOneGateMessage());
+          return;
+        }
+        if (missing.includes(1)) {
+          this.showGateMessage(await this.buildPhaseTwoGateMessage());
           return;
         }
         this.showGateMessage(
@@ -843,6 +1181,12 @@
           this.showGateMessage("Responda as 9 perguntas e confirme o entendimento do diagnóstico para concluir a Fase 1.");
           return;
         }
+        if (currentStep.id === "fase-2") {
+          this.showGateMessage(
+            "Selecione arquétipo, proficiência, responda as 4 competências e confirme o entendimento para concluir a Fase 2."
+          );
+          return;
+        }
         this.showGateMessage(`Confirme o entendimento da Fase ${currentStep.order} para concluí-la.`);
         return;
       }
@@ -858,6 +1202,7 @@
     storageService,
     markdownService,
     diagnosisService,
+    phaseTwoService,
     wizardController
   };
 

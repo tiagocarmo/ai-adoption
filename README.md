@@ -80,13 +80,21 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 
 - Wizard SPA com 7 etapas na ordem oficial.
 - Fase 1 com diagnóstico interativo (9 perguntas, score em tempo real e gargalo principal).
+- Fase 2 com experiência interativa completa de Time AI Enablers:
+  - seleção de arquétipo (`Lean`, `Dedicado`, `Distribuído`);
+  - diagnóstico de familiaridade em 4 competências críticas;
+  - seleção de nível de proficiência do time (`L0` a `L3`);
+  - score combinado de prontidão, risco e direcionamento para a Fase 3;
+  - relatório pós-preenchimento com lacunas e recomendações práticas.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Marcação manual de conclusão por etapa.
 - Barra e anel de progresso.
 - Persistência no `sessionStorage` com chave `ai-adoption-data-wizard-state`.
+- Persistência estendida para respostas, seleções e resultados da Fase 2 no mesmo estado serializado.
 - Restauração automática do estado ao recarregar.
 - Carregamento dinâmico de conteúdo Markdown em `/content`.
+- Carregamento dinâmico de configuração JSON da Fase 2 em `/content/02-time-ai-enablers.json`.
 - Parser Markdown leve (sem bibliotecas externas) com suporte a:
   - headings (`#`, `##`, `###`)
   - listas (`-` e `*`)

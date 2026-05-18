@@ -1,0 +1,255 @@
+{
+  "archetypes": [
+    {
+      "id": "lean",
+      "label": "Lean",
+      "context": "Empresas pequenas",
+      "sizing": "0,5-1 pessoa part-time",
+      "responsibilities": {
+        "technical": [
+          "Avaliar e recomendar ferramentas de IA para o contexto do time.",
+          "Criar guias de configuração e boas práticas de prompts.",
+          "Monitorar qualidade do código gerado com assistência de IA.",
+          "Definir guardrails mínimos de uso: revisão obrigatória e dados sensíveis.",
+          "Definir governança básica de ferramentas aprovadas e dono das decisões."
+        ],
+        "process": [
+          "Facilitar retrospectivas mensais focadas em uso de IA.",
+          "Documentar casos validados e lições aprendidas.",
+          "Manter backlog de experimentos de IA atualizado."
+        ],
+        "culture": [
+          "Criar ambiente seguro para experimentação sem punição por falhas.",
+          "Compartilhar aprendizados em canais do time.",
+          "Celebrar pequenas vitórias de adoção de IA.",
+          "Aplicar Definition of Done com critério mínimo de qualidade.",
+          "Introduzir Shift Left para detectar problemas antes do merge."
+        ]
+      },
+      "antiResponsibilities": [
+        "Não desenvolver features no lugar de outros times.",
+        "Não centralizar todas as decisões de ferramentas de IA.",
+        "Não substituir o papel de liderança técnica local."
+      ],
+      "rituals": [
+        "Check-in quinzenal de 30 minutos com o time completo."
+      ],
+      "plan3090": {
+        "d30": "Escolher 1-2 ferramentas e concluir onboarding do time.",
+        "d60": "Documentar 2 casos de uso validados com ganho mensurável.",
+        "d90": "Revisar governança básica e critérios de expansão."
+      }
+    },
+    {
+      "id": "dedicado",
+      "label": "Dedicado",
+      "context": "Empresas médias",
+      "sizing": "2-3 pessoas dedicadas",
+      "responsibilities": {
+        "technical": [
+          "Avaliar, pilotar e padronizar ferramentas de IA em múltiplos times.",
+          "Manter biblioteca de prompts, templates e integrações internas.",
+          "Definir critérios de qualidade e gates para código assistido por IA.",
+          "Definir guardrails formais priorizados por criticidade.",
+          "Definir governança estruturada com revisão e compliance básico.",
+          "Desenvolver infraestrutura compartilhada básica com MCPs internos."
+        ],
+        "process": [
+          "Facilitar cerimônias quinzenais com representantes de squads.",
+          "Gerenciar backlog de iniciativas de IA por impacto e esforço.",
+          "Reportar métricas de adoção para liderança mensalmente."
+        ],
+        "culture": [
+          "Treinar tech leads nas melhores práticas de uso de IA.",
+          "Criar conteúdo interno: guias, vídeos curtos e demos.",
+          "Apoiar campeões de IA em cada squad.",
+          "Implementar Shift Left com quality gates em pre-commit e PR.",
+          "Padronizar Definition of Done cross-squad.",
+          "Promover cultura de dev dono da qualidade."
+        ]
+      },
+      "antiResponsibilities": [
+        "Não ser o único time que pode avaliar ferramentas de IA.",
+        "Não substituir autonomia técnica de cada squad.",
+        "Não responder por resultados de produto de outros times."
+      ],
+      "rituals": [
+        "Weekly sync interno de 30 minutos.",
+        "Bi-weekly com representantes dos squads."
+      ],
+      "plan3090": {
+        "d30": "Mapear maturidade de squads e priorizar 3 iniciativas de alto impacto.",
+        "d60": "Alcançar 50% dos squads com pelo menos 1 ferramenta padronizada.",
+        "d90": "Consolidar relatório de impacto e roadmap do próximo trimestre."
+      }
+    },
+    {
+      "id": "distribuido",
+      "label": "Distribuído",
+      "context": "Empresas grandes",
+      "sizing": "4-6 pessoas centrais + 1 campeão por squad",
+      "responsibilities": {
+        "technical": [
+          "Definir estratégia e roadmap de adoção de IA organizacional.",
+          "Estabelecer governança corporativa: políticas, auditoria e revisão.",
+          "Evoluir guardrails de segurança e compliance continuamente.",
+          "Operar infraestrutura compartilhada avançada: MCPs, marketplace de skills e AI harness.",
+          "Treinar e apoiar campeões de IA em cada squad."
+        ],
+        "process": [
+          "Manter cadência de revisão de riscos e maturidade por squad.",
+          "Consolidar bloqueios e aprendizados reportados pelos campeões.",
+          "Publicar métricas de adoção organizacionais com periodicidade definida."
+        ],
+        "culture": [
+          "Capacitar campeões para adaptação local sem perder padrões.",
+          "Disseminar práticas de IA segura e orientada a valor.",
+          "Criar trilhas internas para multiplicadores L3."
+        ]
+      },
+      "antiResponsibilities": [
+        "Não ser gargalo de aprovação para iniciativas dos squads.",
+        "Não executar IA tecnicamente no lugar dos squads.",
+        "Não substituir liderança técnica local dos squads."
+      ],
+      "rituals": [
+        "Fórum mensal com campeões de IA e time central.",
+        "Revisão trimestral de governança e capability."
+      ],
+      "plan3090": {
+        "d30": "Onboarding de campeões e mapa de maturidade por squad.",
+        "d60": "Publicar framework de governança v1 e ativar 30% dos squads.",
+        "d90": "Publicar plataforma interna v1 e alcançar 60% dos squads com métricas."
+      }
+    }
+  ],
+  "proficiencyLevels": [
+    {
+      "id": "l0",
+      "label": "L0 · Curioso",
+      "score": 0,
+      "characteristic": "Ouviu falar, ainda não usa IA sistematicamente.",
+      "practical": "Não tem ferramenta configurada no fluxo diário.",
+      "gate": "Obrigatório sair do L0 antes de usar IA em contexto produtivo."
+    },
+    {
+      "id": "l1",
+      "label": "L1 · Aplicador",
+      "score": 1,
+      "characteristic": "Usa IA no fluxo diário com fluência básica.",
+      "practical": "Tem 1 ferramenta ativa e consegue iterar prompts básicos.",
+      "gate": "Gate de entrada para Fase 3: 100% do time piloto em >= L1."
+    },
+    {
+      "id": "l2",
+      "label": "L2 · Crítico",
+      "score": 2,
+      "characteristic": "Avalia output com senso crítico e sabe quando não usar IA.",
+      "practical": "Reverte sugestões ruins e identifica hallucinations.",
+      "gate": "Gate para Fase 5 team: >= 60% do time em L2 por estágio."
+    },
+    {
+      "id": "l3",
+      "label": "L3 · Multiplicador",
+      "score": 3,
+      "characteristic": "Ensina, padroniza e audita o uso de IA.",
+      "practical": "Cria templates, treina pares e define guidelines.",
+      "gate": "Meta de escala: >= 1 L3 por squad e >= 5% da engenharia em L3."
+    }
+  ],
+  "competencies": [
+    {
+      "id": "prompt_engineering",
+      "title": "Prompt Engineering e Colaboração",
+      "description": "Como dar contexto, iterar prompts e usar templates com IA.",
+      "question": "Qual a familiaridade atual do time com técnicas de prompt no fluxo real?"
+    },
+    {
+      "id": "output_critique",
+      "title": "Crítica de Output",
+      "description": "Avaliar qualidade, identificar erros e calibrar confiança.",
+      "question": "Qual a familiaridade do time em revisar e contestar outputs da IA?"
+    },
+    {
+      "id": "security_governance",
+      "title": "Segurança e Governança",
+      "description": "Uso seguro, dados sensíveis, compliance e guardrails.",
+      "question": "Qual a familiaridade do time com limites de segurança no uso de IA?"
+    },
+    {
+      "id": "tooling_stack",
+      "title": "Tooling Específico do Stack",
+      "description": "Setup, integrações e boas práticas das ferramentas aprovadas.",
+      "question": "Qual a familiaridade do time com o setup de ferramentas de IA no stack atual?"
+    }
+  ],
+  "familiarityOptions": [
+    {
+      "id": "nao_familiar",
+      "label": "Não familiar",
+      "score": 1,
+      "description": "Ainda não aplica no dia a dia e precisa de base guiada."
+    },
+    {
+      "id": "familiar",
+      "label": "Familiar",
+      "score": 2,
+      "description": "Consegue aplicar com apoio e repetir padrões já conhecidos."
+    },
+    {
+      "id": "muito_familiar",
+      "label": "Muito familiar",
+      "score": 3,
+      "description": "Aplica de forma autônoma, com avaliação crítica consistente."
+    }
+  ],
+  "weights": {
+    "competencies": 0.55,
+    "proficiency": 0.25,
+    "archetypeReadiness": 0.2
+  },
+  "archetypeReadinessRules": {
+    "lean": { "minProficiencyScore": 1, "minCompetencyAverage": 1.5 },
+    "dedicado": { "minProficiencyScore": 2, "minCompetencyAverage": 2.0 },
+    "distribuido": { "minProficiencyScore": 2, "minCompetencyAverage": 2.4 }
+  },
+  "scoreBands": [
+    {
+      "id": "baixo",
+      "label": "Baixa prontidão",
+      "min": 0,
+      "max": 1.85,
+      "risk": "Alto",
+      "nextStep": "Reforçar capacitação e reduzir escopo do piloto antes da Fase 3."
+    },
+    {
+      "id": "medio",
+      "label": "Prontidão moderada",
+      "min": 1.85,
+      "max": 2.45,
+      "risk": "Médio",
+      "nextStep": "Iniciar piloto controlado com metas e guardrails explícitos."
+    },
+    {
+      "id": "alto",
+      "label": "Alta prontidão",
+      "min": 2.45,
+      "max": 99,
+      "risk": "Baixo",
+      "nextStep": "Avançar para Fase 3 com governança mínima definida e métricas."
+    }
+  ],
+  "recommendations": {
+    "gapByCompetency": {
+      "prompt_engineering": "Rodar workshop de prompts reais e biblioteca de templates por tipo de task.",
+      "output_critique": "Criar rotina de revisão crítica com exemplos de hallucination e critérios de aceitação.",
+      "security_governance": "Formalizar política de uso seguro e checklist de dados sensíveis por PR.",
+      "tooling_stack": "Padronizar setup das ferramentas aprovadas com onboarding guiado e suporte de champions."
+    },
+    "planHints": {
+      "lean": "Priorize 1-2 ferramentas, rituais leves e documentação objetiva.",
+      "dedicado": "Trabalhe em padronização cross-squad e qualidade com gates automáticos.",
+      "distribuido": "Fortaleça governança corporativa e rede de campeões com métricas recorrentes."
+    }
+  }
+}
