@@ -5,7 +5,7 @@
   "type": "module",
   "homepage": "https://tiagocarmo.github.io/ai-adoption",
   "scripts": {
-    "build": "rm -rf public && mkdir -p public && cp index.html style.css script.js public/ && cp -R content public/content"
+    "build": "rm -rf public && mkdir -p public && cp index.html style.css script.js favicon.svg public/ && cp -R content public/content"
   },
   "devDependencies": {}
 }

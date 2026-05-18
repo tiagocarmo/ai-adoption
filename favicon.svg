@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ícone de liderança">
+  <rect width="64" height="64" rx="14" fill="#fffefb"/>
+  <path d="M14 24l8 6 10-14 10 14 8-6 4 18H10l4-18z" fill="#2a70eb"/>
+  <circle cx="32" cy="42" r="8" fill="#201515"/>
+  <path d="M18 56c2-8 8-12 14-12s12 4 14 12H18z" fill="#201515"/>
+</svg>
