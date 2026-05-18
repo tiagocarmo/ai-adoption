@@ -1,5 +1,7 @@
 # AGENTS.md
 
+Entenda o [README.md](README.md) para ter contexto do serviço.
+
 Para decisões relacionadas a design, layout, cores, fontes e demais aspectos visuais, siga as diretrizes definidas em [DESIGN.md](DESIGN.md).
 
 Todo o conteúdo deve ser escrito de forma clara, objetiva e em português do Brasil (pt-BR).
