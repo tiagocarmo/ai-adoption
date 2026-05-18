@@ -1108,12 +1108,16 @@
     stepsNav: document.querySelector("#stepsNav"),
     summaryTitle: document.querySelector("#summaryTitle"),
     summaryContent: document.querySelector("#summaryContent"),
+    summarySection: document.querySelector("#summarySection"),
     goalsTitle: document.querySelector("#goalsTitle"),
     goalsContent: document.querySelector("#goalsContent"),
+    goalsSection: document.querySelector("#goalsSection"),
     questionsTitle: document.querySelector("#questionsTitle"),
     questionsContent: document.querySelector("#questionsContent"),
+    questionsSection: document.querySelector("#questionsSection"),
     criteriaTitle: document.querySelector("#criteriaTitle"),
     criteriaContent: document.querySelector("#criteriaContent"),
+    criteriaSection: document.querySelector("#criteriaSection"),
     diagnosisInteractive: document.querySelector("#diagnosisInteractive"),
     phaseAcknowledgment: document.querySelector("#phaseAcknowledgment"),
     gateMessage: document.querySelector("#gateMessage"),
@@ -1399,8 +1403,35 @@
       dom.gateMessage.setAttribute("hidden", "hidden");
     },
 
+    applySectionVisibility(stepId) {
+      const hideQuestions = stepId === "fase-2" || stepId === "fase-3" || stepId === "fase-4";
+      const hideCriteria = stepId === "fase-2" || stepId === "fase-4";
+
+      if (hideQuestions) {
+        dom.questionsSection?.setAttribute("hidden", "hidden");
+      } else {
+        dom.questionsSection?.removeAttribute("hidden");
+      }
+
+      if (hideCriteria) {
+        dom.criteriaSection?.setAttribute("hidden", "hidden");
+      } else {
+        dom.criteriaSection?.removeAttribute("hidden");
+      }
+    },
+
+    scrollToTop() {
+      if (typeof window !== "undefined" && typeof window.scrollTo === "function") {
+        window.scrollTo({
+          top: 0,
+          behavior: "smooth"
+        });
+      }
+    },
+
     async render() {
       const step = WIZARD_STEPS[this.state.currentStep];
+      this.applySectionVisibility(step.id);
       dom.stepKicker.textContent = `Etapa ${step.order} de ${WIZARD_STEPS.length}`;
       dom.stepTitle.textContent = step.title;
 
@@ -1644,8 +1675,8 @@
                 <article class="phase-two-card${selected ? " selected" : ""}" data-archetype="${archetype.id}">
                   <div class="phase-two-card-head">
                     <h4>${archetype.label}</h4>
-                    <span class="phase-two-chip">${archetype.sizing}</span>
                   </div>
+                  <p class="phase-two-subtitle">${archetype.sizing}</p>
                   <p class="phase-two-context">${archetype.context}</p>
                   <ul>
                     <li><strong>Técnico:</strong> ${archetype.responsibilities.technical[0]}</li>
@@ -2618,6 +2649,7 @@
 
       this.clearGateMessage();
       this.state.currentStep = index;
+      this.scrollToTop();
       this.render();
     },
 
@@ -2657,6 +2689,7 @@
 
       this.clearGateMessage();
       this.state.currentStep = nextStepIndex;
+      this.scrollToTop();
       this.render();
     },
 

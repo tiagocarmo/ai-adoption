@@ -45,12 +45,16 @@ const elements = {
   "#stepKicker": createElement(),
   "#stepTitle": createElement(),
   "#stepsNav": createElement(),
+  "#summarySection": createElement(),
   "#summaryTitle": createElement(),
   "#summaryContent": createElement(),
+  "#goalsSection": createElement(),
   "#goalsTitle": createElement(),
   "#goalsContent": createElement(),
+  "#questionsSection": createElement(),
   "#questionsTitle": createElement(),
   "#questionsContent": createElement(),
+  "#criteriaSection": createElement(),
   "#criteriaTitle": createElement(),
   "#criteriaContent": createElement(),
   "#diagnosisInteractive": createElement(),
@@ -70,7 +74,12 @@ elements["#stepsNav"].querySelectorAll = () => [];
 
 const context = {
   console,
-  window: {},
+  window: {
+    scrollToCalls: [],
+    scrollTo(options) {
+      this.scrollToCalls.push(options);
+    }
+  },
   document: {
     querySelector(selector) {
       return elements[selector] || createElement();
@@ -907,6 +916,37 @@ function testWizardBoundaries() {
   );
 }
 
+function testScrollTopOnNavigation() {
+  context.window.scrollToCalls = [];
+  wizardController.state.completedSteps = new Set([0, 1, 2, 3, 4, 5]);
+
+  wizardController.state.currentStep = 0;
+  wizardController.goNext();
+  assert(context.window.scrollToCalls.length === 1, "must call scrollTo on next");
+  assert(context.window.scrollToCalls[0].top === 0, "must scroll to top");
+
+  wizardController.goToStep(2);
+  assert(context.window.scrollToCalls.length === 2, "must call scrollTo on direct step navigation");
+}
+
+function testSectionVisibilityByPhase() {
+  wizardController.applySectionVisibility("fase-2");
+  assert(elements["#questionsSection"].attributes.hidden === "hidden", "phase 2 must hide questions section");
+  assert(elements["#criteriaSection"].attributes.hidden === "hidden", "phase 2 must hide criteria section");
+
+  wizardController.applySectionVisibility("fase-3");
+  assert(elements["#questionsSection"].attributes.hidden === "hidden", "phase 3 must hide questions section");
+  assert(!elements["#criteriaSection"].attributes.hidden, "phase 3 must keep criteria section visible");
+
+  wizardController.applySectionVisibility("fase-4");
+  assert(elements["#questionsSection"].attributes.hidden === "hidden", "phase 4 must hide questions section");
+  assert(elements["#criteriaSection"].attributes.hidden === "hidden", "phase 4 must hide criteria section");
+
+  wizardController.applySectionVisibility("fase-6");
+  assert(!elements["#questionsSection"].attributes.hidden, "phase 6 must show questions section");
+  assert(!elements["#criteriaSection"].attributes.hidden, "phase 6 must show criteria section");
+}
+
 async function testPhaseOneGateMessage() {
   wizardController.state.phaseAnswers = { "fase-1": {} };
   wizardController.state.phaseAcknowledged = { "fase-1": false };
@@ -958,8 +998,10 @@ async function run() {
     testCurrentStepCompletionReadiness,
     testQuestionTableRender,
     testWizardBoundaries,
+    testScrollTopOnNavigation,
     testPhaseOneGateMessage,
-    testPhaseFiveGateMessage
+    testPhaseFiveGateMessage,
+    testSectionVisibilityByPhase
   ];
 
   for (const testFn of tests) {

@@ -321,6 +321,9 @@ p {
 }
 
 .phase-two-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   border-radius: var(--radius-lg);
   border: 1px solid rgba(32, 21, 21, 0.12);
   background: #fff;
@@ -336,21 +339,20 @@ p {
 .phase-two-card-head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 8px;
 }
 
-.phase-two-chip {
-  border-radius: 999px;
-  padding: 4px 8px;
+.phase-two-subtitle {
+  margin: 0;
   font-size: 12px;
-  background: rgba(42, 112, 235, 0.1);
-  color: var(--primary);
-  font-weight: 700;
+  line-height: 1.35;
+  color: var(--ink-soft);
+  font-weight: 600;
 }
 
 .phase-two-context {
-  margin-top: 8px;
+  margin-top: 0;
   color: var(--body);
   font-size: 14px;
 }
@@ -367,7 +369,7 @@ p {
 }
 
 .phase-two-select-btn {
-  margin-top: 12px;
+  margin-top: auto;
   width: 100%;
 }
 

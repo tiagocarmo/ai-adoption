@@ -108,6 +108,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - artefato final serializado em `phaseReports[\"fase-5\"]`.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
+- Navegação entre fases com scroll automático para o topo da página.
 - Marcação manual de conclusão por etapa.
 - Barra e anel de progresso.
 - Persistência no `sessionStorage` com chave `ai-adoption-data-wizard-state`.
@@ -119,6 +120,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 - Carregamento dinâmico de configuração JSON da Fase 3 em `/content/03-definicao-do-time-piloto.json`.
 - Carregamento dinâmico de configuração JSON da Fase 4 em `/content/04-remocao-de-gargalos-organizacionais-e-tecnicos.json`.
 - Carregamento dinâmico de configuração JSON da Fase 5 em `/content/05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json`.
+- Renderização contextual de seções textuais: ocultação de blocos não aplicáveis nas Fases 2, 3 e 4.
 - Parser Markdown leve (sem bibliotecas externas) com suporte a:
   - headings (`#`, `##`, `###`)
   - listas (`-` e `*`)
