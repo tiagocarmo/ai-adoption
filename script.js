@@ -74,7 +74,8 @@
           currentStep: Math.max(0, Math.min(WIZARD_STEPS.length - 1, state.currentStep)),
           completedSteps: new Set(state.completedSteps.filter((value) => Number.isInteger(value))),
           phaseAnswers: this.sanitizeStepMap(state.phaseAnswers),
-          phaseResults: this.sanitizeStepMap(state.phaseResults)
+          phaseResults: this.sanitizeStepMap(state.phaseResults),
+          phaseAcknowledged: this.sanitizeBooleanStepMap(state.phaseAcknowledged)
         };
       } catch (error) {
         console.error("error loading wizard state", error);
@@ -96,12 +97,24 @@
       return safe;
     },
 
+    sanitizeBooleanStepMap(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return {};
+      }
+      const safe = {};
+      Object.entries(value).forEach(([key, mapValue]) => {
+        safe[key] = Boolean(mapValue);
+      });
+      return safe;
+    },
+
     saveState(state) {
       const serializable = {
         currentStep: state.currentStep,
         completedSteps: Array.from(state.completedSteps),
         phaseAnswers: state.phaseAnswers,
-        phaseResults: state.phaseResults
+        phaseResults: state.phaseResults,
+        phaseAcknowledged: state.phaseAcknowledged
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
     },
@@ -158,11 +171,7 @@
       const isTableLine = (value) => /^\|.+\|$/u.test(value.trim());
       const isTableSeparator = (value) => /^\|(?:\s*:?-{3,}:?\s*\|)+$/u.test(value.trim());
 
-      const parseTableRow = (line) => line
-        .trim()
-        .slice(1, -1)
-        .split("|")
-        .map((cell) => safeInline(cell));
+      const parseTableRow = (line) => line.trim().slice(1, -1).split("|").map((cell) => safeInline(cell));
 
       for (let index = 0; index < lines.length; index += 1) {
         const rawLine = lines[index];
@@ -230,20 +239,21 @@
 
     extractStepSections(mdText) {
       const sections = this.splitSections(mdText);
-      const summary = this.pickSection(sections, ["visão rápida", "objetivo da fase", "objetivo"], "intro");
-      const goals = this.pickSection(sections, ["objetivo da fase", "objetivos", "metodologia de pontuação"], "second");
-      const questions = this.pickSection(
-        sections,
-        ["as 9 perguntas", "perguntas", "dimensões avaliadas", "matriz", "macro-blocos"],
-        "mid"
-      );
-      const criteria = this.pickSection(
-        sections,
-        ["conclusão esperada", "critérios", "métricas", "gate", "expansão", "recomendações"],
-        "tail"
-      );
+      const get = (keywords) => this.findSectionByHeading(sections, keywords);
 
-      return { summary, goals, questions, criteria };
+      return {
+        phaseGoal: get(["objetivo da fase", "objetivo"]),
+        methodology: get(["metodologia de pontuação", "metodologia"]),
+        macroBlocks: get(["3 macro-blocos", "macro-blocos"]),
+        diagnosisQuestions: get(["9 perguntas", "perguntas do diagnóstico", "perguntas"]),
+        recommendations: get(["recomendações", "recomendacoes", "conclusão esperada", "critérios"]),
+        intro: sections[0]?.text || "Conteúdo não encontrado."
+      };
+    },
+
+    findSectionByHeading(sections, keywords) {
+      const found = sections.find((section) => keywords.some((keyword) => section.heading.includes(keyword)));
+      return found?.text || "Conteúdo não encontrado.";
     },
 
     splitSections(mdText) {
@@ -266,25 +276,6 @@
       return sections
         .map((section) => ({ heading: section.heading, text: section.content.join("\n").trim() }))
         .filter((section) => section.text.length > 0);
-    },
-
-    pickSection(sections, keywords, fallbackType) {
-      const exact = sections.find((section) => keywords.some((keyword) => section.heading.includes(keyword)));
-      if (exact) {
-        return exact.text;
-      }
-
-      if (fallbackType === "intro") {
-        return sections[0]?.text || "Conteúdo não encontrado.";
-      }
-      if (fallbackType === "second") {
-        return sections[1]?.text || sections[0]?.text || "Conteúdo não encontrado.";
-      }
-      if (fallbackType === "mid") {
-        const middle = Math.floor(sections.length / 2);
-        return sections[middle]?.text || sections[0]?.text || "Conteúdo não encontrado.";
-      }
-      return sections[sections.length - 1]?.text || sections[0]?.text || "Conteúdo não encontrado.";
     },
 
     escapeHtml(value) {
@@ -404,11 +395,16 @@
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
     stepsNav: document.querySelector("#stepsNav"),
+    summaryTitle: document.querySelector("#summaryTitle"),
     summaryContent: document.querySelector("#summaryContent"),
+    goalsTitle: document.querySelector("#goalsTitle"),
     goalsContent: document.querySelector("#goalsContent"),
+    questionsTitle: document.querySelector("#questionsTitle"),
     questionsContent: document.querySelector("#questionsContent"),
+    criteriaTitle: document.querySelector("#criteriaTitle"),
     criteriaContent: document.querySelector("#criteriaContent"),
     diagnosisInteractive: document.querySelector("#diagnosisInteractive"),
+    gateMessage: document.querySelector("#gateMessage"),
     backButton: document.querySelector("#backButton"),
     nextButton: document.querySelector("#nextButton"),
     completeButton: document.querySelector("#completeButton"),
@@ -424,7 +420,8 @@
       currentStep: 0,
       completedSteps: new Set(),
       phaseAnswers: {},
-      phaseResults: {}
+      phaseResults: {},
+      phaseAcknowledged: {}
     },
 
     async init() {
@@ -449,6 +446,30 @@
       });
     },
 
+    canAccessStep(index) {
+      if (index <= 0) {
+        return true;
+      }
+      return this.isPhaseOneGateSatisfied();
+    },
+
+    isPhaseOneGateSatisfied() {
+      const result = this.state.phaseResults["fase-1"];
+      const answeredAll = result && result.answeredCount === result.total;
+      const acknowledged = Boolean(this.state.phaseAcknowledged["fase-1"]);
+      return Boolean(answeredAll && acknowledged);
+    },
+
+    showGateMessage(message) {
+      dom.gateMessage.textContent = message;
+      dom.gateMessage.removeAttribute("hidden");
+    },
+
+    clearGateMessage() {
+      dom.gateMessage.textContent = "";
+      dom.gateMessage.setAttribute("hidden", "hidden");
+    },
+
     async render() {
       const step = WIZARD_STEPS[this.state.currentStep];
       dom.stepKicker.textContent = `Etapa ${step.order} de ${WIZARD_STEPS.length}`;
@@ -456,15 +477,37 @@
 
       const stepText = await markdownService.loadStepMarkdown(step);
       const sections = markdownService.extractStepSections(stepText);
+      const isPhaseOne = step.id === "fase-1";
 
-      dom.summaryContent.innerHTML = markdownService.parseMarkdown(sections.summary || "Conteúdo indisponível.");
-      dom.goalsContent.innerHTML = markdownService.parseMarkdown(sections.goals || "Conteúdo indisponível.");
-      dom.questionsContent.innerHTML = markdownService.parseMarkdown(sections.questions || "Conteúdo indisponível.");
-      dom.criteriaContent.innerHTML = markdownService.parseMarkdown(sections.criteria || "Conteúdo indisponível.");
+      if (isPhaseOne) {
+        dom.summaryTitle.textContent = "Objetivo da fase";
+        dom.summaryContent.innerHTML = markdownService.parseMarkdown(sections.phaseGoal || sections.intro);
 
-      if (step.id === "fase-1") {
-        await this.renderDiagnosisInteractive();
+        dom.goalsTitle.textContent = "Metodologia de pontuação";
+        dom.goalsContent.innerHTML = markdownService.parseMarkdown(sections.methodology || "Conteúdo indisponível.");
+
+        dom.questionsTitle.textContent = "Os 3 macro-blocos";
+        dom.questionsContent.innerHTML = markdownService.parseMarkdown(sections.macroBlocks || "Conteúdo indisponível.");
+
+        dom.criteriaTitle.textContent = "Recomendações por dimensão e nível";
+        dom.criteriaContent.innerHTML = markdownService.parseMarkdown(sections.recommendations || "Conteúdo indisponível.");
+
+        await this.renderDiagnosisInteractive(sections.diagnosisQuestions || "Conteúdo indisponível.");
       } else {
+        dom.summaryTitle.textContent = "Descrição resumida";
+        dom.summaryContent.innerHTML = markdownService.parseMarkdown(sections.intro || "Conteúdo indisponível.");
+
+        dom.goalsTitle.textContent = "Objetivos";
+        dom.goalsContent.innerHTML = markdownService.parseMarkdown(sections.phaseGoal || sections.methodology || "Conteúdo indisponível.");
+
+        dom.questionsTitle.textContent = "Perguntas e reflexões";
+        dom.questionsContent.innerHTML = markdownService.parseMarkdown(
+          sections.diagnosisQuestions || sections.macroBlocks || "Conteúdo indisponível."
+        );
+
+        dom.criteriaTitle.textContent = "Critérios de conclusão";
+        dom.criteriaContent.innerHTML = markdownService.parseMarkdown(sections.recommendations || "Conteúdo indisponível.");
+
         dom.diagnosisInteractive.innerHTML = "";
         dom.diagnosisInteractive.setAttribute("hidden", "hidden");
       }
@@ -475,26 +518,24 @@
       storageService.saveState(this.state);
     },
 
-    async renderDiagnosisInteractive() {
+    async renderDiagnosisInteractive(questionsMarkdown) {
       const config = await diagnosisService.loadConfig();
       const stepKey = "fase-1";
       const answers = this.state.phaseAnswers[stepKey] || {};
       const result = diagnosisService.calculateResult(config, answers);
-      const bottleneck = diagnosisService.getBottleneck(config, result);
+      const acknowledged = Boolean(this.state.phaseAcknowledged[stepKey]);
 
       this.state.phaseResults[stepKey] = result;
 
-      const blockLookup = config.blockMetadata.reduce((acc, block) => {
-        acc[block.id] = block;
-        return acc;
-      }, {});
+      const isComplete = result.answeredCount === result.total;
+      const bottleneck = isComplete ? diagnosisService.getBottleneck(config, result) : null;
 
       dom.diagnosisInteractive.removeAttribute("hidden");
       dom.diagnosisInteractive.innerHTML = `
         <div class="diagnosis-hero">
           <p class="diagnosis-tag">Diagnóstico interativo</p>
-          <h3>${config.title}</h3>
-          <p>${config.description}</p>
+          <h3>As 9 perguntas do diagnóstico</h3>
+          <div class="content-block">${markdownService.parseMarkdown(questionsMarkdown)}</div>
         </div>
 
         <div class="diagnosis-layout">
@@ -503,34 +544,41 @@
             ${config.questions.map((question, index) => this.renderQuestionCard(question, answers[question.id], index + 1)).join("")}
           </div>
 
-          <aside class="diagnosis-panel">
-            <h4>Resultado em tempo real</h4>
-            <p class="score-value">${result.average.toFixed(2)}</p>
-            <p class="score-level">Nível: <strong>${result.overallBand.label}</strong></p>
-            <p class="score-description">${result.overallBand.interpretation}</p>
+          ${isComplete ? `
+            <aside class="diagnosis-panel">
+              <h4>Resultado do diagnóstico</h4>
+              <p class="score-value">${result.average.toFixed(2)}</p>
+              <p class="score-level">Nível: <strong>${result.overallBand.label}</strong></p>
+              <p class="score-description">${result.overallBand.interpretation}</p>
 
-            <div class="score-blocks">
-              ${config.blockMetadata.map((block) => {
-                const blockAverage = result.blockAverages.find((item) => item.blockId === block.id)?.average || 0;
-                const width = Math.max(0, Math.min(100, (blockAverage / 3) * 100));
-                return `
-                  <div class="score-block-item">
-                    <div class="score-block-head">
-                      <span class="block-badge block-${block.id.toLowerCase()}">${block.id}</span>
-                      <span>${block.title}</span>
-                      <span>${blockAverage.toFixed(2)}</span>
+              <div class="score-blocks">
+                ${config.blockMetadata.map((block) => {
+                  const blockAverage = result.blockAverages.find((item) => item.blockId === block.id)?.average || 0;
+                  const width = Math.max(0, Math.min(100, (blockAverage / 3) * 100));
+                  return `
+                    <div class="score-block-item">
+                      <div class="score-block-head">
+                        <span class="block-badge block-${block.id.toLowerCase()}">${block.id}</span>
+                        <span>${block.title}</span>
+                        <span>${blockAverage.toFixed(2)}</span>
+                      </div>
+                      <div class="mini-bar"><span style="width:${width}%"></span></div>
                     </div>
-                    <div class="mini-bar"><span style="width:${width}%"></span></div>
-                  </div>
-                `;
-              }).join("")}
-            </div>
+                  `;
+                }).join("")}
+              </div>
 
-            <div class="score-bottleneck">
-              <h5>Principal gargalo</h5>
-              <p>${bottleneck ? `${bottleneck.label} (${bottleneck.optionLabel})` : "Responda as perguntas para identificar."}</p>
-            </div>
-          </aside>
+              <div class="score-bottleneck">
+                <h5>Principal gargalo</h5>
+                <p>${bottleneck ? `${bottleneck.label} (${bottleneck.optionLabel})` : "N/A"}</p>
+              </div>
+
+              <label class="ack-box">
+                <input type="checkbox" id="phaseOneAck" ${acknowledged ? "checked" : ""}>
+                <span>Entendi o diagnóstico da organização neste momento.</span>
+              </label>
+            </aside>
+          ` : ""}
         </div>
       `;
 
@@ -542,10 +590,19 @@
             ...previous,
             [questionId]: optionId
           };
+          this.clearGateMessage();
           this.render();
         });
       });
 
+      const ackInput = dom.diagnosisInteractive.querySelector("#phaseOneAck");
+      if (ackInput) {
+        ackInput.addEventListener("change", (event) => {
+          this.state.phaseAcknowledged[stepKey] = event.target.checked;
+          this.clearGateMessage();
+          this.render();
+        });
+      }
     },
 
     renderQuestionCard(question, selectedOptionId, position) {
@@ -618,17 +675,15 @@
 
       const currentStep = WIZARD_STEPS[this.state.currentStep];
       if (currentStep.id === "fase-1") {
-        const result = this.state.phaseResults["fase-1"];
-        const isReady = result && result.answeredCount === result.total;
+        const done = this.state.completedSteps.has(this.state.currentStep);
+        const gateSatisfied = this.isPhaseOneGateSatisfied();
+        dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
+        dom.completeButton.disabled = done || !gateSatisfied;
+      } else {
         const done = this.state.completedSteps.has(this.state.currentStep);
         dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
-        dom.completeButton.disabled = done || !isReady;
-        return;
+        dom.completeButton.disabled = done;
       }
-
-      const done = this.state.completedSteps.has(this.state.currentStep);
-      dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
-      dom.completeButton.disabled = done;
     },
 
     updateNavigationState() {
@@ -636,6 +691,7 @@
         const index = Number(button.dataset.stepIndex);
         button.classList.toggle("current", index === this.state.currentStep);
         button.classList.toggle("completed", this.state.completedSteps.has(index));
+        button.classList.toggle("locked", !this.canAccessStep(index));
       });
     },
 
@@ -643,6 +699,13 @@
       if (!Number.isInteger(index) || index < 0 || index >= WIZARD_STEPS.length) {
         return;
       }
+
+      if (!this.canAccessStep(index)) {
+        this.showGateMessage("Conclua a Fase 1 (9 respostas + confirmação) para avançar para a próxima etapa.");
+        return;
+      }
+
+      this.clearGateMessage();
       this.state.currentStep = index;
       this.render();
     },
@@ -651,7 +714,15 @@
       if (this.state.currentStep >= WIZARD_STEPS.length - 1) {
         return;
       }
-      this.state.currentStep += 1;
+
+      const nextStepIndex = this.state.currentStep + 1;
+      if (!this.canAccessStep(nextStepIndex)) {
+        this.showGateMessage("Conclua a Fase 1 (9 respostas + confirmação) antes de seguir para a Fase 2.");
+        return;
+      }
+
+      this.clearGateMessage();
+      this.state.currentStep = nextStepIndex;
       this.render();
     },
 
@@ -659,19 +730,19 @@
       if (this.state.currentStep <= 0) {
         return;
       }
+      this.clearGateMessage();
       this.state.currentStep -= 1;
       this.render();
     },
 
     markCurrentStepCompleted() {
       const currentStep = WIZARD_STEPS[this.state.currentStep];
-      if (currentStep.id === "fase-1") {
-        const result = this.state.phaseResults["fase-1"];
-        if (!result || result.answeredCount !== result.total) {
-          return;
-        }
+      if (currentStep.id === "fase-1" && !this.isPhaseOneGateSatisfied()) {
+        this.showGateMessage("Responda as 9 perguntas e confirme o entendimento do diagnóstico para concluir a Fase 1.");
+        return;
       }
 
+      this.clearGateMessage();
       this.state.completedSteps.add(this.state.currentStep);
       this.render();
     }

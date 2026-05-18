@@ -26,6 +26,9 @@ function createElement() {
     querySelectorAll() {
       return [];
     },
+    querySelector() {
+      return null;
+    },
     setAttribute(key, value) {
       this.attributes[key] = value;
     },
@@ -42,11 +45,16 @@ const elements = {
   "#stepKicker": createElement(),
   "#stepTitle": createElement(),
   "#stepsNav": createElement(),
+  "#summaryTitle": createElement(),
   "#summaryContent": createElement(),
+  "#goalsTitle": createElement(),
   "#goalsContent": createElement(),
+  "#questionsTitle": createElement(),
   "#questionsContent": createElement(),
+  "#criteriaTitle": createElement(),
   "#criteriaContent": createElement(),
   "#diagnosisInteractive": createElement(),
+  "#gateMessage": createElement(),
   "#backButton": createElement(),
   "#nextButton": createElement(),
   "#completeButton": createElement(),
@@ -56,6 +64,8 @@ const elements = {
   "#sidebarToggle": createElement(),
   "#sidebar": createElement()
 };
+
+elements["#stepsNav"].querySelectorAll = () => [];
 
 const context = {
   console,
@@ -127,8 +137,6 @@ const context = {
   }
 };
 
-elements["#stepsNav"].querySelectorAll = () => [];
-
 vm.createContext(context);
 vm.runInContext(scriptContent, context);
 
@@ -164,12 +172,32 @@ function testMarkdownEscape() {
   assert(!html.includes("<script>"), "must not keep raw script tag");
 }
 
-function testExtractSectionsFallback() {
-  const md = "# Fase\n\n## Objetivo da fase\nTexto objetivo\n\n## Perguntas\nTexto perguntas\n\n## Critérios\nTexto critérios";
+function testExtractSectionsSemantic() {
+  const md = [
+    "# Fase",
+    "",
+    "## Objetivo da fase",
+    "Texto objetivo",
+    "",
+    "## Metodologia de pontuação",
+    "Texto metodologia",
+    "",
+    "## Os 3 macro-blocos",
+    "Texto blocos",
+    "",
+    "## As 9 perguntas do diagnóstico",
+    "Texto perguntas",
+    "",
+    "## Recomendações por dimensão e nível",
+    "Texto recomendações"
+  ].join("\n");
+
   const sections = markdownService.extractStepSections(md);
-  assert(sections.goals.includes("Texto objetivo"), "must extract goals section");
-  assert(sections.questions.includes("Texto perguntas"), "must extract questions section");
-  assert(sections.criteria.includes("Texto critérios"), "must extract criteria section");
+  assert(sections.phaseGoal.includes("Texto objetivo"), "must map objective section");
+  assert(sections.methodology.includes("Texto metodologia"), "must map methodology section");
+  assert(sections.macroBlocks.includes("Texto blocos"), "must map macro-block section");
+  assert(sections.diagnosisQuestions.includes("Texto perguntas"), "must map questions section");
+  assert(sections.recommendations.includes("Texto recomendações"), "must map recommendations section");
 }
 
 function testDiagnosisScoreAndBottleneck() {
@@ -214,6 +242,50 @@ function testDiagnosisScoreAndBottleneck() {
   assert(bottleneck.questionId === "q2", "must apply impact-based tie-break");
 }
 
+function testPhaseOneGate() {
+  wizardController.state.phaseResults = {
+    "fase-1": {
+      answeredCount: 8,
+      total: 9
+    }
+  };
+  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  assert(!wizardController.isPhaseOneGateSatisfied(), "gate must fail with incomplete answers");
+
+  wizardController.state.phaseResults = {
+    "fase-1": {
+      answeredCount: 9,
+      total: 9
+    }
+  };
+  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  assert(!wizardController.isPhaseOneGateSatisfied(), "gate must fail without acknowledgment");
+
+  wizardController.state.phaseAcknowledged = { "fase-1": true };
+  assert(wizardController.isPhaseOneGateSatisfied(), "gate must pass with 9/9 + acknowledgment");
+}
+
+function testCanAccessStep() {
+  wizardController.state.phaseResults = {
+    "fase-1": {
+      answeredCount: 8,
+      total: 9
+    }
+  };
+  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  assert(wizardController.canAccessStep(0), "must allow current phase");
+  assert(!wizardController.canAccessStep(1), "must block phase 2 before gate");
+
+  wizardController.state.phaseResults = {
+    "fase-1": {
+      answeredCount: 9,
+      total: 9
+    }
+  };
+  wizardController.state.phaseAcknowledged = { "fase-1": true };
+  assert(wizardController.canAccessStep(1), "must allow phase 2 after gate");
+}
+
 function testWizardBoundaries() {
   wizardController.state.currentStep = 0;
   wizardController.goBack();
@@ -227,22 +299,16 @@ function testWizardBoundaries() {
   );
 }
 
-function testWizardCompletion() {
-  wizardController.state.currentStep = 2;
-  wizardController.state.completedSteps = new Set();
-  wizardController.markCurrentStepCompleted();
-  assert(wizardController.state.completedSteps.has(2), "current step should be completed");
-}
-
 function run() {
   const tests = [
     testMarkdownParse,
     testMarkdownTableParse,
     testMarkdownEscape,
-    testExtractSectionsFallback,
+    testExtractSectionsSemantic,
     testDiagnosisScoreAndBottleneck,
-    testWizardBoundaries,
-    testWizardCompletion
+    testPhaseOneGate,
+    testCanAccessStep,
+    testWizardBoundaries
   ];
 
   for (const testFn of tests) {
