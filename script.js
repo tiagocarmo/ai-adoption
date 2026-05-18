@@ -6,6 +6,7 @@
   const PHASE_FOUR_CONFIG_FILE = "content/04-remocao-de-gargalos-organizacionais-e-tecnicos.json";
   const PHASE_FIVE_CONFIG_FILE = "content/05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json";
   const PHASE_SIX_CONFIG_FILE = "content/06-governanca-e-padronizacao.json";
+  const PHASE_SEVEN_CONFIG_FILE = "content/07-escala-organizacional.json";
 
   const WIZARD_STEPS = [
     {
@@ -75,6 +76,7 @@
   let phaseFourConfigCache = null;
   let phaseFiveConfigCache = null;
   let phaseSixConfigCache = null;
+  let phaseSevenConfigCache = null;
 
   const storageService = {
     loadState() {
@@ -1204,6 +1206,247 @@
     }
   };
 
+  const phaseSevenService = {
+    async loadConfig() {
+      if (phaseSevenConfigCache) {
+        return phaseSevenConfigCache;
+      }
+
+      const response = await fetch(PHASE_SEVEN_CONFIG_FILE);
+      if (!response.ok) {
+        throw new Error(`failed to load phase seven config: ${PHASE_SEVEN_CONFIG_FILE}`);
+      }
+
+      const config = await response.json();
+      if (!Array.isArray(config.questions) || !config.rolloutByEngineeringSize || !Array.isArray(config.metrics)) {
+        throw new Error("invalid phase seven config");
+      }
+
+      phaseSevenConfigCache = config;
+      return phaseSevenConfigCache;
+    },
+
+    calculateResult(config, answers = {}) {
+      const answeredEntries = config.questions
+        .map((question) => {
+          const optionId = answers[question.id];
+          const option = question.options.find((item) => item.id === optionId);
+          if (!option) {
+            return null;
+          }
+          return {
+            questionId: question.id,
+            questionLabel: question.label,
+            optionId: option.id,
+            optionLabel: option.label,
+            score: Number(option.score)
+          };
+        })
+        .filter(Boolean);
+
+      const answeredCount = answeredEntries.length;
+      const total = config.questions.length;
+      const average = answeredCount
+        ? answeredEntries.reduce((acc, item) => acc + item.score, 0) / answeredCount
+        : 0;
+      const overallBand = this.resolveBand(config.scoreBands, average);
+      const completion = total ? Math.round((answeredCount / total) * 100) : 0;
+
+      return {
+        answeredCount,
+        total,
+        completion,
+        average,
+        overallBand,
+        scoredAnswers: answeredEntries
+      };
+    },
+
+    resolveBand(scoreBands, score) {
+      const matched = scoreBands.find((band) => score >= band.min && score < band.max);
+      return matched || scoreBands[scoreBands.length - 1];
+    },
+
+    buildScalePlan(config, answers = {}, result = {}) {
+      const engineeringSize = answers.engineeringSize;
+      const rollout = config.rolloutByEngineeringSize[engineeringSize] || null;
+      if (!rollout) {
+        return null;
+      }
+
+      const doraTrend = answers.doraTrend || "stable";
+      const governanceStatus = answers.governancePhaseSixStatus || "draft";
+      const adoptionStatus = answers.currentWeeklyAdoption || "below-25";
+
+      const recommendedRisks = config.risks
+        .filter((risk) => {
+          if (risk.id === "RISK-S07") {
+            return governanceStatus !== "active-review";
+          }
+          if (risk.id === "RISK-S02") {
+            return adoptionStatus === "50-79" || adoptionStatus === "80-plus";
+          }
+          return true;
+        })
+        .slice(0, 4);
+
+      const executionNotes = [];
+      if (doraTrend !== "improving") {
+        executionNotes.push("Manter uma onda de estabilização antes de acelerar expansão para squads adicionais.");
+      }
+      if (governanceStatus !== "active-review") {
+        executionNotes.push("Completar governança ativa da Fase 6 antes da última onda de escala.");
+      }
+      if (answers.championsPerSquad !== "full") {
+        executionNotes.push("Estruturar pelo menos 1 campeão de IA por squad para reduzir gargalos operacionais.");
+      }
+      if (!executionNotes.length) {
+        executionNotes.push("Operar ondas com gates de sucesso claros e revisão quinzenal de métricas críticas.");
+      }
+
+      return {
+        generatedAt: new Date().toISOString(),
+        readinessBand: result.overallBand?.label || "N/A",
+        rollout,
+        prioritizedMetrics: config.metrics,
+        ceremonies: config.ceremonies,
+        prioritizedRisks: recommendedRisks,
+        completionCriteria: config.completionCriteria,
+        executionNotes
+      };
+    }
+  };
+
+  const exportService = {
+    getSerializableState(state) {
+      return {
+        currentStep: state.currentStep,
+        completedSteps: Array.from(state.completedSteps),
+        phaseAnswers: state.phaseAnswers,
+        phaseSelections: state.phaseSelections,
+        phaseResults: state.phaseResults,
+        phaseReports: state.phaseReports,
+        phaseAcknowledged: state.phaseAcknowledged
+      };
+    },
+
+    getAnswerMap(config, answers = {}) {
+      if (!config || !Array.isArray(config.questions)) {
+        return [];
+      }
+
+      return config.questions.map((question) => {
+        const value = answers[question.id];
+        const options = Array.isArray(question.options) ? question.options : [];
+        const selected = options.find((option) => option.id === value);
+
+        return {
+          questionId: question.id,
+          question: question.label || question.title || question.prompt || question.id,
+          answerId: selected?.id || null,
+          answerLabel: selected?.label || null,
+          rawValue: typeof value === "undefined" ? null : value
+        };
+      });
+    },
+
+    async buildPayload(state) {
+      const [
+        phaseOneConfig,
+        phaseTwoConfig,
+        phaseThreeConfig,
+        phaseFourConfig,
+        phaseFiveConfig,
+        phaseSixConfig,
+        phaseSevenConfig
+      ] = await Promise.all([
+        diagnosisService.loadConfig(),
+        phaseTwoService.loadConfig(),
+        phaseThreeService.loadConfig(),
+        phaseFourService.loadConfig(),
+        phaseFiveService.loadConfig(),
+        phaseSixService.loadConfig(),
+        phaseSevenService.loadConfig()
+      ]);
+
+      const serializableState = this.getSerializableState(state);
+      const configByStepId = {
+        "fase-1": phaseOneConfig,
+        "fase-2": phaseTwoConfig,
+        "fase-3": phaseThreeConfig,
+        "fase-4": phaseFourConfig,
+        "fase-5": phaseFiveConfig,
+        "fase-6": phaseSixConfig,
+        "fase-7": phaseSevenConfig
+      };
+
+      const phases = WIZARD_STEPS.map((step, index) => {
+        const config = configByStepId[step.id];
+        const answers = state.phaseAnswers[step.id] || {};
+        const selections = state.phaseSelections[step.id] || {};
+        const computed = state.phaseResults[step.id] || {};
+        const report = state.phaseReports[step.id] || null;
+
+        return {
+          id: step.id,
+          order: step.order,
+          title: step.title,
+          inputs: {
+            answers,
+            selections,
+            questionAnswerMap: this.getAnswerMap(config, answers)
+          },
+          computed,
+          report,
+          status: {
+            isCurrent: state.currentStep === index,
+            isCompleted: state.completedSteps.has(index),
+            acknowledged: Boolean(state.phaseAcknowledged[step.id]),
+            pending: {
+              missingAnswers: this.getAnswerMap(config, answers).filter((entry) => !entry.answerId).length
+            }
+          }
+        };
+      });
+
+      return {
+        meta: {
+          schemaVersion: "1.0.0",
+          exportedAt: new Date().toISOString(),
+          storageKey: STORAGE_KEY,
+          source: "ai-adoption-wizard"
+        },
+        wizardState: serializableState,
+        phases,
+        sourceConfigs: {
+          "fase-1": phaseOneConfig,
+          "fase-2": phaseTwoConfig,
+          "fase-3": phaseThreeConfig,
+          "fase-4": phaseFourConfig,
+          "fase-5": phaseFiveConfig,
+          "fase-6": phaseSixConfig,
+          "fase-7": phaseSevenConfig
+        }
+      };
+    },
+
+    download(payload) {
+      const timestamp = new Date().toISOString().replaceAll(":", "-").replace(/\.\d{3}Z$/u, "Z");
+      const fileName = `ai-adoption-export-${timestamp}.json`;
+      const text = `${JSON.stringify(payload, null, 2)}\n`;
+      const blob = new Blob([text], { type: "application/json;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+      return fileName;
+    }
+  };
+
   const dom = {
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
@@ -1346,6 +1589,9 @@
       }
       if (currentStep.id === "fase-6") {
         return this.isPhaseSixGateSatisfied();
+      }
+      if (currentStep.id === "fase-7") {
+        return this.isPhaseSevenGateSatisfied();
       }
       return this.isStepAcknowledged(currentStep.id);
     },
@@ -1519,6 +1765,27 @@
       return parts.length ? parts.join(" | ") : "Conclua a Fase 6 para avançar.";
     },
 
+    isPhaseSevenGateSatisfied() {
+      const result = this.state.phaseResults["fase-7"];
+      const acknowledged = Boolean(this.state.phaseAcknowledged["fase-7"]);
+      return Boolean(result && result.answeredCount === result.total && result.hasPlan && acknowledged);
+    },
+
+    async buildPhaseSevenGateMessage() {
+      const result = this.state.phaseResults["fase-7"] || {};
+      const parts = [];
+      if ((result.answeredCount || 0) < (result.total || 6)) {
+        parts.push(`Responda todas as perguntas da Fase 7 (${result.answeredCount || 0}/${result.total || 6}).`);
+      }
+      if (!result.hasPlan) {
+        parts.push("Complete o preenchimento para gerar o plano de escala organizacional.");
+      }
+      if (!Boolean(this.state.phaseAcknowledged["fase-7"])) {
+        parts.push("Marque a confirmação de entendimento da Fase 7.");
+      }
+      return parts.length ? parts.join(" | ") : "Conclua a Fase 7.";
+    },
+
     showGateMessage(message) {
       dom.gateMessage.textContent = message;
       dom.gateMessage.removeAttribute("hidden");
@@ -1569,6 +1836,7 @@
       const isPhaseFour = step.id === "fase-4";
       const isPhaseFive = step.id === "fase-5";
       const isPhaseSix = step.id === "fase-6";
+      const isPhaseSeven = step.id === "fase-7";
 
       if (isPhaseOne) {
         dom.summaryTitle.textContent = "Objetivo da fase";
@@ -1610,6 +1878,8 @@
           await this.renderPhaseFiveInteractive();
         } else if (isPhaseSix) {
           await this.renderPhaseSixInteractive();
+        } else if (isPhaseSeven) {
+          await this.renderPhaseSevenInteractive();
         } else {
           dom.diagnosisInteractive.innerHTML = "";
           dom.diagnosisInteractive.setAttribute("hidden", "hidden");
@@ -2706,6 +2976,141 @@
       });
     },
 
+    renderPhaseSevenQuestion(question, value, index) {
+      return `
+        <article class="phase-three-question">
+          <div class="question-head">
+            <p class="question-index">Pergunta ${index + 1}</p>
+          </div>
+          <h5>${this.escapeHtml(question.label)}</h5>
+          <div class="phase-three-options">
+            ${question.options.map((option) => `
+              <label class="phase-three-option${value === option.id ? " selected" : ""}">
+                <input
+                  type="radio"
+                  name="phase-seven-${this.escapeHtml(question.id)}"
+                  data-phase-seven-question-id="${this.escapeHtml(question.id)}"
+                  data-option-id="${this.escapeHtml(option.id)}"
+                  ${value === option.id ? "checked" : ""}
+                >
+                <span>${this.escapeHtml(option.label)}</span>
+              </label>
+            `).join("")}
+          </div>
+        </article>
+      `;
+    },
+
+    async exportConsolidatedJson() {
+      const payload = await exportService.buildPayload(this.state);
+      const fileName = exportService.download(payload);
+      this.showGateMessage(`Exportação gerada com sucesso: ${fileName}`);
+    },
+
+    async renderPhaseSevenInteractive() {
+      const config = await phaseSevenService.loadConfig();
+      const stepKey = "fase-7";
+      const answers = this.state.phaseAnswers[stepKey] || {};
+      const result = phaseSevenService.calculateResult(config, answers);
+      const hasAllAnswers = result.answeredCount === result.total;
+      const scalePlan = hasAllAnswers ? phaseSevenService.buildScalePlan(config, answers, result) : null;
+
+      this.state.phaseResults[stepKey] = {
+        ...result,
+        hasPlan: Boolean(scalePlan)
+      };
+      this.state.phaseReports[stepKey] = scalePlan;
+
+      dom.diagnosisInteractive.removeAttribute("hidden");
+      dom.diagnosisInteractive.innerHTML = `
+        <div class="phase-six-shell">
+          <div class="diagnosis-hero">
+            <p class="diagnosis-tag">Escala Organizacional</p>
+            <h3>Rollout em ondas com métricas, rituais e mitigação de riscos</h3>
+            <p class="phase-two-intro">
+              Preencha o contexto atual da organização para gerar um plano de escala orientado por governança,
+              adoção por squad e impacto mensurável.
+            </p>
+            <p class="phase-five-status">
+              Perguntas respondidas: <strong>${result.answeredCount}/${result.total}</strong>
+            </p>
+          </div>
+
+          <section class="phase-five-card">
+            <h4>1) Contexto de escala</h4>
+            <div class="phase-three-questions">
+              ${config.questions.map((question, index) => this.renderPhaseSevenQuestion(question, answers[question.id], index)).join("")}
+            </div>
+          </section>
+
+          <section class="phase-five-card${scalePlan ? "" : " locked"}">
+            <h4>2) Plano de escala gerado</h4>
+            ${
+    scalePlan
+      ? `
+                <p><strong>Nível atual de prontidão:</strong> ${this.escapeHtml(result.overallBand.label)}</p>
+                <p>${this.escapeHtml(result.overallBand.interpretation)}</p>
+                <p><strong>Ondas recomendadas:</strong> ${scalePlan.rollout.waves} · <strong>Duração:</strong> ${this.escapeHtml(scalePlan.rollout.waveDuration)}</p>
+                <p><strong>Estratégia:</strong> ${this.escapeHtml(scalePlan.rollout.strategy)}</p>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Métricas prioritárias</strong></p>
+                  <ul>${scalePlan.prioritizedMetrics.map((item) => `<li><strong>${this.escapeHtml(item.code)}</strong> (${this.escapeHtml(item.layer)}): ${this.escapeHtml(item.name)} · Meta: ${this.escapeHtml(item.target)}</li>`).join("")}</ul>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Cerimônias recorrentes</strong></p>
+                  <ul>${scalePlan.ceremonies.map((item) => `<li><strong>${this.escapeHtml(item.name)}</strong> (${this.escapeHtml(item.frequency)}): ${this.escapeHtml(item.objective)}</li>`).join("")}</ul>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Riscos priorizados</strong></p>
+                  <ul>${scalePlan.prioritizedRisks.map((item) => `<li><strong>${this.escapeHtml(item.id)} · ${this.escapeHtml(item.name)}</strong>: ${this.escapeHtml(item.mitigation)}</li>`).join("")}</ul>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Critérios finais de conclusão</strong></p>
+                  <ul>${scalePlan.completionCriteria.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Notas de execução</strong></p>
+                  <ul>${scalePlan.executionNotes.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+                </div>
+              `
+      : "<p>Responda as 6 perguntas de contexto para gerar o plano completo desta fase.</p>"
+  }
+          </section>
+
+          <section class="phase-five-card${scalePlan ? "" : " locked"}">
+            <h4>3) Exportar diagnóstico consolidado</h4>
+            <p>Gera um JSON único com respostas, preenchimentos, resultados e relatórios de todas as fases.</p>
+            <button type="button" class="btn btn-primary" data-phase-seven-export ${scalePlan ? "" : "disabled"}>
+              Exportar JSON consolidado
+            </button>
+          </section>
+        </div>
+      `;
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-seven-question-id]").forEach((input) => {
+        input.addEventListener("change", async (event) => {
+          const questionId = event.target.dataset.phaseSevenQuestionId;
+          const optionId = event.target.dataset.optionId;
+          const previous = this.state.phaseAnswers[stepKey] || {};
+          this.state.phaseAnswers[stepKey] = {
+            ...previous,
+            [questionId]: optionId
+          };
+          this.clearGateMessage();
+          await this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelector("[data-phase-seven-export]")?.addEventListener("click", async () => {
+        await this.exportConsolidatedJson();
+      });
+    },
+
     async renderPhaseThreeInteractive() {
       const config = await phaseThreeService.loadConfig();
       const stepKey = "fase-3";
@@ -2910,6 +3315,10 @@
           this.showGateMessage(await this.buildPhaseSixGateMessage());
           return;
         }
+        if (missing.includes(6)) {
+          this.showGateMessage(await this.buildPhaseSevenGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[index].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
@@ -2952,6 +3361,10 @@
         }
         if (missing.includes(5)) {
           this.showGateMessage(await this.buildPhaseSixGateMessage());
+          return;
+        }
+        if (missing.includes(6)) {
+          this.showGateMessage(await this.buildPhaseSevenGateMessage());
           return;
         }
         this.showGateMessage(
@@ -3004,6 +3417,10 @@
           this.showGateMessage(await this.buildPhaseSixGateMessage());
           return;
         }
+        if (currentStep.id === "fase-7") {
+          this.showGateMessage(await this.buildPhaseSevenGateMessage());
+          return;
+        }
         this.showGateMessage(`Confirme o entendimento da Fase ${currentStep.order} para concluí-la.`);
         return;
       }
@@ -3024,6 +3441,8 @@
     phaseFourService,
     phaseFiveService,
     phaseSixService,
+    phaseSevenService,
+    exportService,
     wizardController
   };
 

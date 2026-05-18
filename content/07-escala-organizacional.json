@@ -1,0 +1,202 @@
+{
+  "title": "Escala Organizacional",
+  "description": "Consolide a escala de adoção com rollout em ondas, metas de métricas, cerimônias e mitigação de riscos.",
+  "schemaVersion": "1.0.0",
+  "questions": [
+    {
+      "id": "engineeringSize",
+      "label": "Tamanho da engenharia",
+      "options": [
+        { "id": "1-9", "label": "1–9 engenheiros", "score": 1 },
+        { "id": "10-29", "label": "10–29 engenheiros", "score": 1 },
+        { "id": "30-99", "label": "30–99 engenheiros", "score": 2 },
+        { "id": "100-299", "label": "100–299 engenheiros", "score": 2 },
+        { "id": "300+", "label": "300+ engenheiros", "score": 3 }
+      ]
+    },
+    {
+      "id": "currentWeeklyAdoption",
+      "label": "% de engenheiros usando IA semanalmente hoje",
+      "options": [
+        { "id": "below-25", "label": "Abaixo de 25%", "score": 1 },
+        { "id": "25-49", "label": "Entre 25% e 49%", "score": 2 },
+        { "id": "50-79", "label": "Entre 50% e 79%", "score": 3 },
+        { "id": "80-plus", "label": "80% ou mais", "score": 3 }
+      ]
+    },
+    {
+      "id": "squadsWithTeamLevelSdlc",
+      "label": "% de squads com pelo menos 2 estágios do SDLC em nível team+",
+      "options": [
+        { "id": "below-30", "label": "Abaixo de 30%", "score": 1 },
+        { "id": "30-59", "label": "Entre 30% e 59%", "score": 2 },
+        { "id": "60-89", "label": "Entre 60% e 89%", "score": 3 },
+        { "id": "90-plus", "label": "90% ou mais", "score": 3 }
+      ]
+    },
+    {
+      "id": "governancePhaseSixStatus",
+      "label": "Status de governança (Fase 6)",
+      "options": [
+        { "id": "draft", "label": "Rascunho inicial", "score": 1 },
+        { "id": "published", "label": "Publicado, mas sem revisão ativa", "score": 2 },
+        { "id": "active-review", "label": "Publicado com revisão ativa", "score": 3 }
+      ]
+    },
+    {
+      "id": "doraTrend",
+      "label": "Tendência das métricas DORA após adoção de IA",
+      "options": [
+        { "id": "worse", "label": "Piorou ou inconclusivo", "score": 1 },
+        { "id": "stable", "label": "Estável", "score": 2 },
+        { "id": "improving", "label": "Melhora mensurável", "score": 3 }
+      ]
+    },
+    {
+      "id": "championsPerSquad",
+      "label": "Campeões de IA por squad",
+      "options": [
+        { "id": "none", "label": "Sem campeões definidos", "score": 1 },
+        { "id": "partial", "label": "Parcial (menos de 1 por squad)", "score": 2 },
+        { "id": "full", "label": "Completo (1 ou mais por squad)", "score": 3 }
+      ]
+    }
+  ],
+  "scoreBands": [
+    {
+      "id": "foundation",
+      "label": "Fundação",
+      "min": 0,
+      "max": 1.8,
+      "interpretation": "Estrutura de escala ainda frágil. Priorize bases de governança e adoção mínima por squad."
+    },
+    {
+      "id": "expansion",
+      "label": "Expansão Controlada",
+      "min": 1.8,
+      "max": 2.5,
+      "interpretation": "Base razoável para escalar em ondas com controle rigoroso de métricas e riscos."
+    },
+    {
+      "id": "scale-ready",
+      "label": "Escala Sustentável",
+      "min": 2.5,
+      "max": 99,
+      "interpretation": "Organização preparada para escalar com previsibilidade e impacto organizacional."
+    }
+  ],
+  "rolloutByEngineeringSize": {
+    "1-9": {
+      "waves": 1,
+      "waveDuration": "4–6 semanas",
+      "strategy": "Adoção simultânea de todo o time. Piloto e escala são a mesma fase."
+    },
+    "10-29": {
+      "waves": 2,
+      "waveDuration": "6–8 semanas cada",
+      "strategy": "Onda 1: 50% do time (squads mais maduros). Onda 2: restante com playbook da onda 1."
+    },
+    "30-99": {
+      "waves": 3,
+      "waveDuration": "8 semanas cada",
+      "strategy": "Onda 1: time piloto + 1 squad adjacente. Ondas 2–3 por afinidade técnica e disponibilidade de campeões."
+    },
+    "100-299": {
+      "waves": 4,
+      "waveDuration": "6–10 semanas cada",
+      "strategy": "Onda 1: squads com campeões de IA formados. Ondas seguintes por vertical de produto."
+    },
+    "300+": {
+      "waves": 5,
+      "waveDuration": "8–12 semanas cada",
+      "strategy": "Ondas por business unit ou domínio. Requer estrutura de campeões por squad e plataforma interna de IA."
+    }
+  },
+  "metrics": [
+    {
+      "layer": "Adoção",
+      "code": "MET-A01",
+      "name": "% de engenheiros usando IA semanalmente",
+      "target": "25% → 50% → 80%"
+    },
+    {
+      "layer": "Adoção",
+      "code": "MET-A03",
+      "name": "Taxa de adoção por squad",
+      "target": "100% dos squads ao final da última onda"
+    },
+    {
+      "layer": "Adoção",
+      "code": "MET-A04",
+      "name": "Distribuição de proficiência (L0/L1/L2/L3)",
+      "target": "<10% L0 · ≥60% L1+ · ≥20% L2+ · ≥5% L3"
+    },
+    {
+      "layer": "Engajamento",
+      "code": "MET-E01",
+      "name": "% do SDLC coberto por IA",
+      "target": "6 estágios com adoção em nível team+ progressivamente"
+    },
+    {
+      "layer": "Engajamento",
+      "code": "MET-E03",
+      "name": "% de PRs com revisão assistida por IA",
+      "target": "Evolução contínua por onda"
+    },
+    {
+      "layer": "Impacto",
+      "code": "MET-I03",
+      "name": "Variação consolidada das métricas DORA",
+      "target": "Melhora mensurável vs baseline pré-framework"
+    }
+  ],
+  "ceremonies": [
+    {
+      "name": "Weekly Sync",
+      "frequency": "Semanal · 30 min",
+      "participants": "Time central de adoção de IA",
+      "objective": "Revisar métricas da semana, desbloquear impedimentos e alinhar prioridades da próxima onda"
+    },
+    {
+      "name": "Campeões Champions",
+      "frequency": "Quinzenal · 45 min",
+      "participants": "Time central + campeões de IA por squad",
+      "objective": "Compartilhar aprendizados e identificar casos de uso replicáveis"
+    },
+    {
+      "name": "Retro de Adoção",
+      "frequency": "Mensal · 60 min",
+      "participants": "Time central + liderança técnica",
+      "objective": "Avaliar progresso, ajustar estratégia de rollout e comunicar resultados"
+    }
+  ],
+  "risks": [
+    {
+      "id": "RISK-S01",
+      "name": "Big-bang rollout",
+      "mitigation": "Implementar rollout em ondas com critérios de entrada explícitos e metas por onda."
+    },
+    {
+      "id": "RISK-S02",
+      "name": "Potemkin AI (adoção superficial)",
+      "mitigation": "Medir engajamento qualitativo e revisitar squads com alta adoção e baixo impacto."
+    },
+    {
+      "id": "RISK-S03",
+      "name": "Sobrecarga do Time AI Enablers",
+      "mitigation": "Limitar onboarding simultâneo conforme capacidade e distribuir suporte via campeões."
+    },
+    {
+      "id": "RISK-S07",
+      "name": "Governança insuficiente para escala",
+      "mitigation": "Garantir Fase 6 completa e escalar revisões de segurança/compliance antes de ampliar ferramentas."
+    }
+  ],
+  "completionCriteria": [
+    "≥ 80% dos engenheiros usando pelo menos uma ferramenta de IA semanalmente.",
+    "Todos os squads com pelo menos 2 estágios do SDLC com IA em nível team ou superior.",
+    "Framework de governança v1 publicado, comunicado e com revisão ativa.",
+    "Métricas DORA com melhora mensurável versus baseline pré-framework.",
+    "Pelo menos 1 ciclo completo de retro de adoção com liderança técnica e resultados documentados."
+  ]
+}

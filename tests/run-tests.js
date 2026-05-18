@@ -291,6 +291,73 @@ const context = {
       };
     }
 
+    if (path.endsWith("04-remocao-de-gargalos-organizacionais-e-tecnicos.json")) {
+      return {
+        ok: true,
+        json: async () => ({
+          trilhas: [{ id: "tecnica" }, { id: "organizacional" }, { id: "cultura" }],
+          marcos: [{ id: "d30" }, { id: "d90" }, { id: "d180" }],
+          regrasPontuacao: {
+            formula: "(impacto*3)+((4-esforco)*2)+(risco*2)",
+            classificacao: {
+              critical: { label: "Crítico", min: 11, max: 15 },
+              medium: { label: "Médio", min: 7, max: 10 }
+            }
+          }
+        })
+      };
+    }
+
+    if (path.endsWith("06-governanca-e-padronizacao.json")) {
+      return {
+        ok: true,
+        json: async () => ({
+          questions: [
+            { id: "orgSize", options: [{ id: "small", score: 1 }] },
+            { id: "hasAgentic", options: [{ id: "no", score: 1 }] },
+            { id: "mcpServersCount", options: [{ id: "none", score: 1 }] }
+          ],
+          owners: {
+            core: [{ policy: "Uso de Dados", owner: "Security", review: "Anual" }]
+          },
+          technicalStandards: ["Prompts versionados"],
+          guardrails: {
+            critical: ["PII off"],
+            high: ["Review mandatory"],
+            medium: ["Tag costs"]
+          }
+        })
+      };
+    }
+
+    if (path.endsWith("07-escala-organizacional.json")) {
+      return {
+        ok: true,
+        json: async () => ({
+          questions: [
+            { id: "engineeringSize", label: "Size", options: [{ id: "10-29", label: "10-29", score: 1 }] },
+            { id: "currentWeeklyAdoption", label: "Adoption", options: [{ id: "50-79", label: "50-79", score: 3 }] },
+            { id: "squadsWithTeamLevelSdlc", label: "Squads", options: [{ id: "60-89", label: "60-89", score: 3 }] },
+            { id: "governancePhaseSixStatus", label: "Governance", options: [{ id: "active-review", label: "active-review", score: 3 }] },
+            { id: "doraTrend", label: "DORA", options: [{ id: "improving", label: "improving", score: 3 }] },
+            { id: "championsPerSquad", label: "Champions", options: [{ id: "full", label: "full", score: 3 }] }
+          ],
+          scoreBands: [
+            { id: "foundation", label: "Fundação", min: 0, max: 1.8, interpretation: "f" },
+            { id: "expansion", label: "Expansão", min: 1.8, max: 2.5, interpretation: "e" },
+            { id: "scale-ready", label: "Escala", min: 2.5, max: 99, interpretation: "s" }
+          ],
+          rolloutByEngineeringSize: {
+            "10-29": { waves: 2, waveDuration: "6-8 semanas", strategy: "Onda 1 + Onda 2" }
+          },
+          metrics: [{ layer: "Adoção", code: "MET-A01", name: "Uso semanal", target: "80%" }],
+          ceremonies: [{ name: "Weekly Sync", frequency: "Semanal", objective: "Revisar" }],
+          risks: [{ id: "RISK-S01", name: "Big-bang", mitigation: "Ondas" }],
+          completionCriteria: ["Critério A"]
+        })
+      };
+    }
+
     if (path.endsWith(".json")) {
       return {
         ok: true,
@@ -351,7 +418,9 @@ const {
   phaseThreeService,
   phaseFourService,
   phaseFiveService,
-  phaseSixService
+  phaseSixService,
+  phaseSevenService,
+  exportService
 } = context.window.AIAdoptionWizard;
 
 function testMarkdownParse() {
@@ -870,6 +939,83 @@ function testPhaseSixQuestionRenderPattern() {
   assert(html.includes("Pergunta 1"), "phase 6 should show visual question header");
 }
 
+function testPhaseSevenPlanAndGate() {
+  const config = {
+    questions: [
+      { id: "engineeringSize", label: "Size", options: [{ id: "10-29", label: "10-29", score: 1 }] },
+      { id: "currentWeeklyAdoption", label: "Adoption", options: [{ id: "50-79", label: "50-79", score: 3 }] },
+      { id: "squadsWithTeamLevelSdlc", label: "Squads", options: [{ id: "60-89", label: "60-89", score: 3 }] },
+      { id: "governancePhaseSixStatus", label: "Governance", options: [{ id: "active-review", label: "active-review", score: 3 }] },
+      { id: "doraTrend", label: "DORA", options: [{ id: "improving", label: "improving", score: 3 }] },
+      { id: "championsPerSquad", label: "Champions", options: [{ id: "full", label: "full", score: 3 }] }
+    ],
+    scoreBands: [
+      { id: "foundation", label: "Fundação", min: 0, max: 1.8, interpretation: "f" },
+      { id: "expansion", label: "Expansão", min: 1.8, max: 2.5, interpretation: "e" },
+      { id: "scale-ready", label: "Escala", min: 2.5, max: 99, interpretation: "s" }
+    ],
+    rolloutByEngineeringSize: {
+      "10-29": { waves: 2, waveDuration: "6-8 semanas", strategy: "Onda 1 + Onda 2" }
+    },
+    metrics: [{ layer: "Adoção", code: "MET-A01", name: "Uso semanal", target: "80%" }],
+    ceremonies: [{ name: "Weekly Sync", frequency: "Semanal", objective: "Revisar" }],
+    risks: [{ id: "RISK-S01", name: "Big-bang", mitigation: "Ondas" }],
+    completionCriteria: ["Critério A"]
+  };
+
+  const answers = {
+    engineeringSize: "10-29",
+    currentWeeklyAdoption: "50-79",
+    squadsWithTeamLevelSdlc: "60-89",
+    governancePhaseSixStatus: "active-review",
+    doraTrend: "improving",
+    championsPerSquad: "full"
+  };
+
+  const result = phaseSevenService.calculateResult(config, answers);
+  assert(result.answeredCount === 6, "phase 7 must count all answered questions");
+  assert(result.overallBand.id === "scale-ready", "phase 7 must classify scale-ready");
+
+  const plan = phaseSevenService.buildScalePlan(config, answers, result);
+  assert(plan.rollout.waves === 2, "phase 7 must map waves by engineering size");
+  assert(plan.prioritizedMetrics.length === 1, "phase 7 must include metric plan");
+
+  wizardController.state.phaseResults = { "fase-7": { answeredCount: 6, total: 6, hasPlan: true } };
+  wizardController.state.phaseAcknowledged = { "fase-7": true };
+  assert(wizardController.isPhaseSevenGateSatisfied(), "phase 7 gate must pass with full inputs and ack");
+}
+
+async function testExportPayloadStructure() {
+  wizardController.state = {
+    currentStep: 6,
+    completedSteps: new Set([0, 1, 2, 3, 4, 5]),
+    phaseAnswers: {
+      "fase-1": { q1: "high", q2: "medium" },
+      "fase-7": {
+        engineeringSize: "10-29",
+        currentWeeklyAdoption: "50-79",
+        squadsWithTeamLevelSdlc: "60-89",
+        governancePhaseSixStatus: "active-review",
+        doraTrend: "improving",
+        championsPerSquad: "full"
+      }
+    },
+    phaseSelections: { "fase-2": { archetypeId: "lean", proficiencyLevelId: "l1" } },
+    phaseResults: { "fase-7": { answeredCount: 6, total: 6, hasPlan: true } },
+    phaseReports: { "fase-7": { rollout: { waves: 2 } } },
+    phaseAcknowledged: { "fase-7": true }
+  };
+
+  const payload = await exportService.buildPayload(wizardController.state);
+  assert(payload.meta && payload.meta.schemaVersion, "export must include meta schema");
+  assert(payload.wizardState && payload.wizardState.phaseAnswers, "export must include wizard state");
+  assert(Array.isArray(payload.phases) && payload.phases.length === 7, "export must include all 7 phases");
+  assert(payload.sourceConfigs["fase-7"], "export must include phase 7 source config");
+
+  const phaseSeven = payload.phases.find((item) => item.id === "fase-7");
+  assert(phaseSeven.inputs.questionAnswerMap.length === 6, "phase 7 export must include organized question map");
+}
+
 function testCanAccessStep() {
   wizardController.state.completedSteps = new Set();
   assert(wizardController.canAccessStep(0), "must allow current phase");
@@ -1090,6 +1236,8 @@ async function run() {
     testPhaseFiveLocalizedLabelsRender,
     testPhaseSixGovernancePack,
     testPhaseSixQuestionRenderPattern,
+    testPhaseSevenPlanAndGate,
+    testExportPayloadStructure,
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,

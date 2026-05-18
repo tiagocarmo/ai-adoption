@@ -37,6 +37,8 @@ Aplicação frontend em HTML, CSS e JavaScript puro para navegação guiada das 
 │   ├── 05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.md
 │   ├── 05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json
 │   ├── 06-governanca-e-padronizacao.md
+│   ├── 06-governanca-e-padronizacao.json
+│   ├── 07-escala-organizacional.json
 │   └── 07-escala-organizacional.md
 └── /tests
     └── run-tests.js
@@ -111,6 +113,10 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - recomendação de modelo de condução do Time AI Enablers por cenário;
   - pacote com owners/cadência das 9 políticas, 7 padrões técnicos e guardrails por criticidade;
   - plano de implantação 30/60/90 e controles mandatórios imediatos.
+- Fase 7 com experiência interativa completa de Escala Organizacional:
+  - questionário de contexto para escala;
+  - plano gerado com ondas, métricas, cerimônias, riscos e critérios de conclusão;
+  - exportação de JSON consolidado com todos os dados preenchidos e artefatos gerados.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Navegação entre fases com scroll automático para o topo da página.
@@ -125,6 +131,8 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 - Carregamento dinâmico de configuração JSON da Fase 3 em `/content/03-definicao-do-time-piloto.json`.
 - Carregamento dinâmico de configuração JSON da Fase 4 em `/content/04-remocao-de-gargalos-organizacionais-e-tecnicos.json`.
 - Carregamento dinâmico de configuração JSON da Fase 5 em `/content/05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json`.
+- Carregamento dinâmico de configuração JSON da Fase 6 em `/content/06-governanca-e-padronizacao.json`.
+- Carregamento dinâmico de configuração JSON da Fase 7 em `/content/07-escala-organizacional.json`.
 - Renderização contextual de seções textuais: ocultação de blocos não aplicáveis nas Fases 2, 3 e 4.
 - Parser Markdown leve (sem bibliotecas externas) com suporte a:
   - headings (`#`, `##`, `###`)
@@ -182,6 +190,17 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - `applyCalibrations(config, plan, upstreamSignals)`
   - `validatePlan(config, plan)`
   - `buildPhaseFiveReport(config, plan)`
+- `phaseSixService`
+  - `loadConfig()`
+  - `calculateProfile(config, answers)`
+  - `buildGovernancePack(config, answers, profile)`
+- `phaseSevenService`
+  - `loadConfig()`
+  - `calculateResult(config, answers)`
+  - `buildScalePlan(config, answers, result)`
+- `exportService`
+  - `buildPayload(state)`
+  - `download(payload)`
 
 ### Estratégia de extração semântica
 
@@ -212,8 +231,21 @@ Cobertura atual:
 - Cálculo de score ponderado, relatório e gate da Fase 3.
 - Sanitização de backlog, score, roadmap e gate da Fase 4.
 - Seleção de template, calibrações, validação e gate da Fase 5.
+- Perfil, pacote e gate da Fase 6.
+- Plano de escala, gate e exportação consolidada da Fase 7.
 - Limites de navegação (`Voltar/Próximo`).
 - Marcação de etapa concluída.
+
+## Exportação do diagnóstico
+
+- O botão `Exportar JSON consolidado` fica no bloco final da **Fase 7**.
+- O arquivo gerado segue o padrão `ai-adoption-export-YYYY-MM-DDTHH-mm-ss.json`.
+- O conteúdo inclui:
+  - `meta` da exportação;
+  - `wizardState` completo;
+  - `phases[]` com perguntas, respostas, preenchimentos, resultados e relatórios;
+  - `sourceConfigs` com os JSONs-base carregados por fase.
+- A documentação de leitura está em [`interpretacao-json.md`](interpretacao-json.md).
 
 Validação E2E com Playwright CLI (cenário da Fase 1):
 
