@@ -25,7 +25,7 @@ sustentável. A conclusão desta fase marca o ciclo completo do framework.
 | 100–299 engenheiros | 4 ondas | 6–10 semanas cada | Onda 1: squads com campeões de IA formados. Ondas subsequentes: rollout por vertical de produto. |
 | 300+ engenheiros | 5 ondas | 8–12 semanas cada | Ondas por business unit ou domínio. Requer estrutura de campeões por squad e plataforma interna de IA. |
 
-## 9 métricas em 3 camadas
+## 11 métricas em 3 camadas
 
 | Camada | Código | Métrica | Descrição e meta |
 | --- | --- | --- | --- |

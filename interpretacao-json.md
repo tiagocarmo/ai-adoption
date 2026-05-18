@@ -79,6 +79,14 @@ Configurações-base em JSON carregadas pelo app para cada fase.
 - `computed`: score, banda e flags de completude.
 - `report`: plano de escala com ondas, métricas, cerimônias, riscos e critérios finais.
 
+## Campos adicionais relevantes por fase
+
+- `fase-4` (`report.prioritizedItems[]`): cada item inclui `source` com origem do gargalo (`phase-1`, `phase-3`, `default` ou `manual`).
+- `fase-5` (`report.stages[]`): além de índices (`selectedCriteria` e `selectedAntiPatterns`), o export inclui
+  `selectedCriteriaLabels` e `selectedAntiPatternLabels` para leitura direta.
+- `fase-6` (`report`): o pacote inclui estruturas adicionais de governança e segurança:
+  `reviewProcess`, `aiSecurityPosture`, `owaspLlmTop10`, `mcpSecurity`, `gatewayGuidance` e `skillsMarketplace`.
+
 ## Compatibilidade e versionamento
 
 - Sempre valide `meta.schemaVersion` antes de processar o arquivo.

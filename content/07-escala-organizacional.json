@@ -121,6 +121,12 @@
     },
     {
       "layer": "Adoção",
+      "code": "MET-A02",
+      "name": "Número de ferramentas de IA ativas",
+      "target": "Portfólio aprovado ativo e revisado trimestralmente"
+    },
+    {
+      "layer": "Adoção",
       "code": "MET-A03",
       "name": "Taxa de adoção por squad",
       "target": "100% dos squads ao final da última onda"
@@ -132,6 +138,12 @@
       "target": "<10% L0 · ≥60% L1+ · ≥20% L2+ · ≥5% L3"
     },
     {
+      "layer": "Adoção",
+      "code": "MET-A05",
+      "name": "Tempo para atingir L1 em novos engenheiros",
+      "target": "<4 semanas"
+    },
+    {
       "layer": "Engajamento",
       "code": "MET-E01",
       "name": "% do SDLC coberto por IA",
@@ -139,9 +151,27 @@
     },
     {
       "layer": "Engajamento",
+      "code": "MET-E02",
+      "name": "Sessões de IA por engenheiro por semana",
+      "target": "Evolução contínua por onda"
+    },
+    {
+      "layer": "Engajamento",
       "code": "MET-E03",
       "name": "% de PRs com revisão assistida por IA",
       "target": "Evolução contínua por onda"
+    },
+    {
+      "layer": "Impacto",
+      "code": "MET-I01",
+      "name": "Variação no cycle time",
+      "target": "Melhora mensurável vs baseline pré-framework"
+    },
+    {
+      "layer": "Impacto",
+      "code": "MET-I02",
+      "name": "Variação na taxa de bugs",
+      "target": "Redução sustentada sem comprometer confiabilidade"
     },
     {
       "layer": "Impacto",
@@ -187,9 +217,29 @@
       "mitigation": "Limitar onboarding simultâneo conforme capacidade e distribuir suporte via campeões."
     },
     {
+      "id": "RISK-S04",
+      "name": "Perda de conhecimento entre ondas",
+      "mitigation": "Documentar playbook de cada onda e tornar campeões mentores da onda seguinte."
+    },
+    {
+      "id": "RISK-S05",
+      "name": "Resistência sênior",
+      "mitigation": "Envolver engenheiros sêniores desde o design do processo e evidenciar ganhos reais."
+    },
+    {
+      "id": "RISK-S06",
+      "name": "Proliferação de ferramentas (tool sprawl)",
+      "mitigation": "Operar aprovação centralizada e revisão trimestral de portfólio com descontinuação."
+    },
+    {
       "id": "RISK-S07",
       "name": "Governança insuficiente para escala",
       "mitigation": "Garantir Fase 6 completa e escalar revisões de segurança/compliance antes de ampliar ferramentas."
+    },
+    {
+      "id": "RISK-S08",
+      "name": "Regressão pós-conclusão",
+      "mitigation": "Manter cerimônias recorrentes e tratar adoção de IA como prática contínua."
     }
   ],
   "completionCriteria": [

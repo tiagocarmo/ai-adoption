@@ -325,7 +325,13 @@ const context = {
             critical: ["PII off"],
             high: ["Review mandatory"],
             medium: ["Tag costs"]
-          }
+          },
+          reviewProcess: [{ step: 1, name: "Proposta inicial" }],
+          aiSecurityPosture: { layers: [{ id: "input", controls: ["Prompt injection detection"] }] },
+          owaspLlmTop10: [{ id: "LLM01", risk: "Prompt Injection", control: "Spotlighting" }],
+          mcpSecurity: { minimumControls: ["OAuth 2.0"] },
+          gatewayGuidance: { recommendedFor: "Médias e grandes" },
+          skillsMarketplace: { criteria: ["Versionamento semântico"] }
         })
       };
     }
@@ -350,9 +356,15 @@ const context = {
           rolloutByEngineeringSize: {
             "10-29": { waves: 2, waveDuration: "6-8 semanas", strategy: "Onda 1 + Onda 2" }
           },
-          metrics: [{ layer: "Adoção", code: "MET-A01", name: "Uso semanal", target: "80%" }],
+          metrics: [
+            { layer: "Adoção", code: "MET-A01", name: "Uso semanal", target: "80%" },
+            { layer: "Adoção", code: "MET-A02", name: "Ferramentas ativas", target: "3+" }
+          ],
           ceremonies: [{ name: "Weekly Sync", frequency: "Semanal", objective: "Revisar" }],
-          risks: [{ id: "RISK-S01", name: "Big-bang", mitigation: "Ondas" }],
+          risks: [
+            { id: "RISK-S01", name: "Big-bang", mitigation: "Ondas" },
+            { id: "RISK-S02", name: "Adoção superficial", mitigation: "Engajamento qualitativo" }
+          ],
           completionCriteria: ["Critério A"]
         })
       };
@@ -571,14 +583,16 @@ function testPhaseFourSanitizeAndPrioritization() {
   };
 
   const rawItems = [
-    { id: "a", trilhaId: "tecnica", descricao: "A", impacto: 3, esforco: 1, risco: 3 },
-    { id: "b", trilhaId: "tecnica", descricao: "A", impacto: 3, esforco: 1, risco: 3 },
-    { id: "c", trilhaId: "organizacional", descricao: "B", impacto: 1, esforco: 3, risco: 1 },
+    { id: "a", trilhaId: "tecnica", descricao: "A", source: "phase-1", impacto: 3, esforco: 1, risco: 3 },
+    { id: "b", trilhaId: "tecnica", descricao: "A", source: "phase-1", impacto: 3, esforco: 1, risco: 3 },
+    { id: "c", trilhaId: "organizacional", descricao: "B", source: "phase-3", impacto: 1, esforco: 3, risco: 1 },
     { id: "d", trilhaId: "cultura", descricao: "", impacto: 2, esforco: 2, risco: 2 }
   ];
 
   const sanitized = phaseFourService.sanitizeBacklog(rawItems);
   assert(sanitized.length === 2, "must remove duplicates and invalid empty items");
+  assert(sanitized[0].source === "phase-1", "must preserve known source");
+  assert(sanitized[1].source === "phase-3", "must preserve known source");
 
   const prioritized = phaseFourService.calculatePrioritization(config, rawItems);
   assert(prioritized.prioritizedItems.length === 2, "must prioritize only valid items");
@@ -874,6 +888,34 @@ function testPhaseFiveValidationAndGate() {
   const valid = phaseFiveService.validatePlan(config, complete);
   assert(valid.valid, "phase 5 validation must pass with criteria filled");
 
+  const report = phaseFiveService.buildPhaseFiveReport(
+    {
+      ...config,
+      stages: config.stages.map((stage) => ({
+        ...stage,
+        advancementCriteria: ["Critério 1"],
+        antiPatterns: ["Anti-padrão 1"]
+      }))
+    },
+    {
+      templateId: "balanceado",
+      templateReason: "reason",
+      warnings: [],
+      stagePlan: config.stages.map((stage) => ({
+        stageId: stage.id,
+        levelId: "experimental",
+        responsibilityId: "shared",
+        selectedCriteria: [0],
+        selectedAntiPatterns: [0]
+      }))
+    }
+  );
+  assert(report.stages[0].selectedCriteriaLabels[0] === "Critério 1", "phase 5 must export criteria labels");
+  assert(
+    report.stages[0].selectedAntiPatternLabels[0] === "Anti-padrão 1",
+    "phase 5 must export anti-pattern labels"
+  );
+
   wizardController.state.phaseResults = { "fase-5": { valid: true, validation: { valid: true, missing: [] } } };
   wizardController.state.phaseAcknowledged = { "fase-5": true };
   assert(wizardController.isPhaseFiveGateSatisfied(), "phase 5 gate must pass with valid plan and ack");
@@ -897,7 +939,13 @@ function testPhaseSixGovernancePack() {
       critical: ["Nenhum PII em Prompts"],
       high: ["Privacy Mode"],
       medium: ["Alertas de Anomalia de Uso"]
-    }
+    },
+    reviewProcess: [{ step: 1, name: "Proposta inicial" }],
+    aiSecurityPosture: { layers: [{ id: "input", controls: ["Prompt injection detection"] }] },
+    owaspLlmTop10: [{ id: "LLM01", risk: "Prompt Injection", control: "Spotlighting" }],
+    mcpSecurity: { minimumControls: ["OAuth 2.0"] },
+    gatewayGuidance: { recommendedFor: "Médias e grandes" },
+    skillsMarketplace: { criteria: ["Versionamento semântico"] }
   };
 
   const profile = phaseSixService.calculateProfile(config, {
@@ -918,6 +966,9 @@ function testPhaseSixGovernancePack() {
     pack.mandatoryControls.some((item) => item.includes("MCP Security")),
     "phase 6 should include MCP controls when servers exist"
   );
+  assert(pack.reviewProcess.length === 1, "phase 6 must include review process");
+  assert(pack.aiSecurityPosture.layers.length === 1, "phase 6 must include AI security posture");
+  assert(pack.owaspLlmTop10.length === 1, "phase 6 must include OWASP structured section");
 }
 
 function testPhaseSixQuestionRenderPattern() {
@@ -957,9 +1008,15 @@ function testPhaseSevenPlanAndGate() {
     rolloutByEngineeringSize: {
       "10-29": { waves: 2, waveDuration: "6-8 semanas", strategy: "Onda 1 + Onda 2" }
     },
-    metrics: [{ layer: "Adoção", code: "MET-A01", name: "Uso semanal", target: "80%" }],
+    metrics: [
+      { layer: "Adoção", code: "MET-A01", name: "Uso semanal", target: "80%" },
+      { layer: "Adoção", code: "MET-A02", name: "Ferramentas ativas", target: "3+" }
+    ],
     ceremonies: [{ name: "Weekly Sync", frequency: "Semanal", objective: "Revisar" }],
-    risks: [{ id: "RISK-S01", name: "Big-bang", mitigation: "Ondas" }],
+    risks: [
+      { id: "RISK-S01", name: "Big-bang", mitigation: "Ondas" },
+      { id: "RISK-S02", name: "Adoção superficial", mitigation: "Engajamento qualitativo" }
+    ],
     completionCriteria: ["Critério A"]
   };
 
@@ -978,7 +1035,8 @@ function testPhaseSevenPlanAndGate() {
 
   const plan = phaseSevenService.buildScalePlan(config, answers, result);
   assert(plan.rollout.waves === 2, "phase 7 must map waves by engineering size");
-  assert(plan.prioritizedMetrics.length === 1, "phase 7 must include metric plan");
+  assert(plan.prioritizedMetrics.length === 2, "phase 7 must include complete metric catalog");
+  assert(plan.prioritizedRisks.length === 2, "phase 7 must keep all applicable risks");
 
   wizardController.state.phaseResults = { "fase-7": { answeredCount: 6, total: 6, hasPlan: true } };
   wizardController.state.phaseAcknowledged = { "fase-7": true };
@@ -1185,6 +1243,19 @@ function testButtonVisibilityByPhase() {
   assert(!elements["#nextButton"].attributes.hidden, "middle phases must show next button");
 }
 
+function testStructuralCoverageContracts() {
+  const phaseSevenConfig = JSON.parse(fs.readFileSync("./content/07-escala-organizacional.json", "utf8"));
+  assert(phaseSevenConfig.metrics.length === 11, "phase 7 must declare 11 metrics");
+  assert(phaseSevenConfig.risks.length === 8, "phase 7 must declare 8 risks");
+  assert(phaseSevenConfig.metrics.some((item) => item.code === "MET-A05"), "phase 7 must include MET-A05");
+  assert(phaseSevenConfig.risks.some((item) => item.id === "RISK-S08"), "phase 7 must include RISK-S08");
+
+  const phaseSixConfig = JSON.parse(fs.readFileSync("./content/06-governanca-e-padronizacao.json", "utf8"));
+  assert(Array.isArray(phaseSixConfig.reviewProcess), "phase 6 must expose reviewProcess");
+  assert(Array.isArray(phaseSixConfig.owaspLlmTop10), "phase 6 must expose OWASP section");
+  assert(Array.isArray(phaseSixConfig.aiSecurityPosture.layers), "phase 6 must expose security posture layers");
+}
+
 function testPhaseFiveLocalizedLabelsRender() {
   const config = {
     stages: [{ id: "observabilidade", label: "Observabilidade", antiPatterns: [], advancementCriteria: [] }],
@@ -1277,7 +1348,8 @@ async function run() {
     testPhaseOneGateMessage,
     testPhaseFiveGateMessage,
     testSectionVisibilityByPhase,
-    testButtonVisibilityByPhase
+    testButtonVisibilityByPhase,
+    testStructuralCoverageContracts
   ];
 
   for (const testFn of tests) {

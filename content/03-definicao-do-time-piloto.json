@@ -261,6 +261,42 @@
         "feedbackSpeed",
         "segurancaPsicologica"
       ]
+    },
+    {
+      "name": "Amazon Q Developer",
+      "category": "Codificação",
+      "guidance": "Indicado para stacks AWS com integração nativa de contexto e serviços.",
+      "prioritizedFor": [
+        "autonomia",
+        "feedbackSpeed"
+      ]
+    },
+    {
+      "name": "Codeium",
+      "category": "Codificação",
+      "guidance": "Opção de entrada com menor barreira de custo para ampliar experimentação assistida.",
+      "prioritizedFor": [
+        "autonomia",
+        "estabilidadeRoadmap"
+      ]
+    },
+    {
+      "name": "Linear",
+      "category": "Planejamento",
+      "guidance": "Apoia planejamento e priorização do piloto com trilhas e entregas rastreáveis.",
+      "prioritizedFor": [
+        "estabilidadeRoadmap",
+        "autonomia"
+      ]
+    },
+    {
+      "name": "Testim",
+      "category": "Testes",
+      "guidance": "Útil para manutenção de testes funcionais em cenários de UI com mudanças frequentes.",
+      "prioritizedFor": [
+        "feedbackSpeed",
+        "estabilidadeRoadmap"
+      ]
     }
   ],
   "successMetrics": {
@@ -303,5 +339,6 @@
       "Governança básica de uso de IA está definida e aplicada no time.",
       "Resultados do piloto foram apresentados para pelo menos 1 squad candidato à expansão."
     ]
-  }
+  },
+  "toolCatalogScope": "subset-priorizado"
 }

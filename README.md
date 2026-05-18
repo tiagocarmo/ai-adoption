@@ -115,7 +115,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - plano de implantação 30/60/90 e controles mandatórios imediatos.
 - Fase 7 com experiência interativa completa de Escala Organizacional:
   - questionário de contexto para escala;
-  - plano gerado com ondas, métricas, cerimônias, riscos e critérios de conclusão;
+  - plano gerado com ondas, catálogo de 11 métricas, 8 riscos, cerimônias e critérios de conclusão;
   - exportação de JSON consolidado com todos os dados preenchidos e artefatos gerados.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.

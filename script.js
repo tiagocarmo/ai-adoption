@@ -698,7 +698,7 @@
     inferBacklogFromUpstream(config, upstreamData = {}) {
       const result = [];
       const seen = new Set();
-      const pushCandidate = (dimensionLabel) => {
+      const pushCandidate = (dimensionLabel, source) => {
         const mapped = config.dimensoesMapeadas?.[dimensionLabel];
         if (!mapped || !mapped.trilhaId || !mapped.gargalo) {
           return;
@@ -710,27 +710,28 @@
         seen.add(key);
         result.push({
           trilhaId: mapped.trilhaId,
-          descricao: mapped.gargalo
+          descricao: mapped.gargalo,
+          source
         });
       };
 
       const phaseOneBottleneck = upstreamData.phaseOneBottleneckLabel;
       if (phaseOneBottleneck) {
-        pushCandidate(phaseOneBottleneck);
+        pushCandidate(phaseOneBottleneck, "phase-1");
       }
 
       const phaseThreeBottleneckId = upstreamData.phaseThreeBottleneckId;
       if (phaseThreeBottleneckId) {
         const label = this.mapDimensionIdToLabel(phaseThreeBottleneckId);
         if (label) {
-          pushCandidate(label);
+          pushCandidate(label, "phase-3");
         }
       }
 
       (upstreamData.phaseThreeLowDimensions || []).forEach((dimensionId) => {
         const label = this.mapDimensionIdToLabel(dimensionId);
         if (label) {
-          pushCandidate(label);
+          pushCandidate(label, "phase-3");
         }
       });
 
@@ -741,7 +742,8 @@
       const inferred = this.inferBacklogFromUpstream(config, upstreamData);
       const defaults = config.trilhas.flatMap((trilha) => trilha.itensBase.slice(0, 2).map((item) => ({
         trilhaId: trilha.id,
-        descricao: item
+        descricao: item,
+        source: "default"
       })));
 
       const merged = [...inferred];
@@ -759,6 +761,7 @@
         id: `f4-${index + 1}`,
         trilhaId: item.trilhaId,
         descricao: item.descricao,
+        source: item.source || "default",
         impacto: 2,
         esforco: 2,
         risco: 2
@@ -782,6 +785,7 @@
         const impacto = Number(item.impacto);
         const esforco = Number(item.esforco);
         const risco = Number(item.risco);
+        const source = typeof item.source === "string" ? item.source.trim() : "";
 
         const isScoreValid = [impacto, esforco, risco].every((value) => Number.isInteger(value) && value >= 1 && value <= 3);
         if (!trilhaId || !descricao || descricao.length > 240 || !isScoreValid) {
@@ -798,6 +802,7 @@
           id: typeof item.id === "string" && item.id ? item.id : `f4-${index + 1}`,
           trilhaId,
           descricao,
+          source: ["phase-1", "phase-3", "default", "manual"].includes(source) ? source : "manual",
           impacto,
           esforco,
           risco
@@ -1094,14 +1099,26 @@
         warnings: plan.warnings || [],
         highRiskStages,
         checklist,
-        stages: (plan.stagePlan || []).map((entry) => ({
-          stageId: entry.stageId,
-          stageLabel: stageMap.get(entry.stageId)?.label || entry.stageId,
-          levelId: entry.levelId,
-          responsibilityId: entry.responsibilityId,
-          selectedAntiPatterns: entry.selectedAntiPatterns || [],
-          selectedCriteria: entry.selectedCriteria || []
-        }))
+        stages: (plan.stagePlan || []).map((entry) => {
+          const stage = stageMap.get(entry.stageId) || null;
+          const selectedCriteriaLabels = (entry.selectedCriteria || [])
+            .map((index) => stage?.advancementCriteria?.[index])
+            .filter(Boolean);
+          const selectedAntiPatternLabels = (entry.selectedAntiPatterns || [])
+            .map((index) => stage?.antiPatterns?.[index])
+            .filter(Boolean);
+
+          return {
+            stageId: entry.stageId,
+            stageLabel: stage?.label || entry.stageId,
+            levelId: entry.levelId,
+            responsibilityId: entry.responsibilityId,
+            selectedAntiPatterns: entry.selectedAntiPatterns || [],
+            selectedCriteria: entry.selectedCriteria || [],
+            selectedAntiPatternLabels,
+            selectedCriteriaLabels
+          };
+        })
       };
     }
   };
@@ -1196,6 +1213,12 @@
         owners: config.owners.core,
         technicalStandards: config.technicalStandards,
         guardrails: config.guardrails,
+        reviewProcess: config.reviewProcess || [],
+        aiSecurityPosture: config.aiSecurityPosture || null,
+        owaspLlmTop10: config.owaspLlmTop10 || [],
+        mcpSecurity: config.mcpSecurity || null,
+        gatewayGuidance: config.gatewayGuidance || null,
+        skillsMarketplace: config.skillsMarketplace || null,
         mandatoryControls,
         roadmap: {
           d30: next30,
@@ -1287,8 +1310,7 @@
             return adoptionStatus === "50-79" || adoptionStatus === "80-plus";
           }
           return true;
-        })
-        .slice(0, 4);
+        });
 
       const executionNotes = [];
       if (doraTrend !== "improving") {

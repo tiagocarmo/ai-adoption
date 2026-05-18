@@ -102,5 +102,137 @@
       "Isolamento de Ambiente para IA",
       "Alertas de Anomalia de Uso"
     ]
+  },
+  "reviewProcess": [
+    {
+      "step": 1,
+      "name": "Proposta inicial",
+      "owner": "Engenheiro proponente",
+      "sla": "-"
+    },
+    {
+      "step": 2,
+      "name": "Revisão de segurança",
+      "owner": "Security Engineering",
+      "sla": "3 dias úteis"
+    },
+    {
+      "step": 3,
+      "name": "Piloto controlado",
+      "owner": "Time AI Enablers",
+      "sla": "2 semanas"
+    },
+    {
+      "step": 4,
+      "name": "Avaliação de impacto",
+      "owner": "Time AI Enablers",
+      "sla": "5 dias úteis"
+    },
+    {
+      "step": 5,
+      "name": "Decisão e comunicação",
+      "owner": "CTO / VP Engineering",
+      "sla": "2 dias úteis"
+    }
+  ],
+  "aiSecurityPosture": {
+    "layers": [
+      {
+        "id": "input",
+        "label": "Input Guardrails",
+        "controls": [
+          "Prompt injection detection",
+          "PII sanitization automática",
+          "Policy classification",
+          "Context shaping"
+        ]
+      },
+      {
+        "id": "output",
+        "label": "Output Guardrails",
+        "controls": [
+          "Nenhum output raw em produção",
+          "Schema validation",
+          "Sensitive data scan no output",
+          "System prompt leakage detection"
+        ]
+      },
+      {
+        "id": "runtime",
+        "label": "Runtime Guardrails",
+        "controls": [
+          "Least privilege por tool call",
+          "Audit log por ação do agente",
+          "Plan drift detection",
+          "Human-in-the-loop para ações irreversíveis"
+        ]
+      }
+    ]
+  },
+  "owaspLlmTop10": [
+    {
+      "id": "LLM01",
+      "risk": "Prompt Injection",
+      "control": "Spotlighting, policy classification e separação instrução/dados"
+    },
+    {
+      "id": "LLM02",
+      "risk": "Sensitive Information Disclosure",
+      "control": "PII sanitization no input/output e privacy mode obrigatório"
+    },
+    {
+      "id": "LLM03",
+      "risk": "Supply Chain Vulnerabilities",
+      "control": "Registry verificado, scan de provenance e allowlist de modelos"
+    },
+    {
+      "id": "LLM05",
+      "risk": "Improper Output Handling",
+      "control": "Schema validation e bloqueio de output raw"
+    },
+    {
+      "id": "LLM06",
+      "risk": "Excessive Agency",
+      "control": "Least privilege, human-in-the-loop e plan drift detection"
+    },
+    {
+      "id": "LLM07",
+      "risk": "System Prompt Leakage",
+      "control": "Leak detection e testes regulares de extração"
+    },
+    {
+      "id": "LLM08",
+      "risk": "Vector & Embedding Weaknesses",
+      "control": "RBAC no vector store e isolamento de namespaces"
+    },
+    {
+      "id": "LLM10",
+      "risk": "Unbounded Consumption",
+      "control": "Budget alerts, rate limiting e limites de tokens"
+    }
+  ],
+  "mcpSecurity": {
+    "minimumControls": [
+      "OAuth 2.0",
+      "RBAC por operação",
+      "Audit log com atribuição",
+      "Path & scope controls",
+      "Rate limiting",
+      "Sensitivity label evaluation"
+    ]
+  },
+  "gatewayGuidance": {
+    "recommendedFor": "Médias e grandes",
+    "summary": "Plano de controle central para tráfego LLM + MCP + A2A com RBAC unificado e audit trail consolidado."
+  },
+  "skillsMarketplace": {
+    "recommendedFor": "Médias e grandes",
+    "criteria": [
+      "Versionamento semântico",
+      "RBAC por catálogo",
+      "Security scan automático",
+      "Aprovação do Time AI Enablers",
+      "Métricas de uso e deprecação"
+    ]
   }
 }
