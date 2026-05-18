@@ -1151,8 +1151,38 @@ function testSectionVisibilityByPhase() {
   assert(elements["#criteriaSection"].attributes.hidden === "hidden", "phase 5 must hide criteria section");
 
   wizardController.applySectionVisibility("fase-6");
-  assert(!elements["#questionsSection"].attributes.hidden, "phase 6 must show questions section");
-  assert(!elements["#criteriaSection"].attributes.hidden, "phase 6 must show criteria section");
+  assert(elements["#questionsSection"].attributes.hidden === "hidden", "phase 6 must hide questions section");
+  assert(elements["#criteriaSection"].attributes.hidden === "hidden", "phase 6 must hide criteria section");
+
+  wizardController.applySectionVisibility("fase-7");
+  assert(elements["#questionsSection"].attributes.hidden === "hidden", "phase 7 must hide questions section");
+  assert(!elements["#criteriaSection"].attributes.hidden, "phase 7 must keep criteria section visible");
+}
+
+function testButtonVisibilityByPhase() {
+  wizardController.state.currentStep = 0;
+  wizardController.state.completedSteps = new Set();
+  wizardController.state.phaseResults = { "fase-1": { answeredCount: 0, total: 9 } };
+  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  wizardController.updateButtons();
+  assert(elements["#backButton"].attributes.hidden === "hidden", "phase 1 must hide back button");
+  assert(!elements["#nextButton"].attributes.hidden, "phase 1 must keep next button visible");
+
+  wizardController.state.currentStep = 6;
+  wizardController.state.phaseResults["fase-7"] = { answeredCount: 0, total: 6, hasPlan: false };
+  wizardController.state.phaseAcknowledged["fase-7"] = false;
+  wizardController.updateButtons();
+  assert(elements["#nextButton"].attributes.hidden === "hidden", "phase 7 must hide next button");
+  assert(!elements["#backButton"].attributes.hidden, "phase 7 must show back button");
+
+  wizardController.state.currentStep = 2;
+  wizardController.state.phaseResults["fase-3"] = { answeredCount: 0, total: 5 };
+  wizardController.state.phaseSelections = { "fase-3": {} };
+  wizardController.state.phaseReports = {};
+  wizardController.state.phaseAcknowledged["fase-3"] = false;
+  wizardController.updateButtons();
+  assert(!elements["#backButton"].attributes.hidden, "middle phases must show back button");
+  assert(!elements["#nextButton"].attributes.hidden, "middle phases must show next button");
 }
 
 function testPhaseFiveLocalizedLabelsRender() {
@@ -1246,7 +1276,8 @@ async function run() {
     testScrollTopOnNavigation,
     testPhaseOneGateMessage,
     testPhaseFiveGateMessage,
-    testSectionVisibilityByPhase
+    testSectionVisibilityByPhase,
+    testButtonVisibilityByPhase
   ];
 
   for (const testFn of tests) {

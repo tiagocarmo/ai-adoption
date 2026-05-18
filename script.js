@@ -1797,8 +1797,8 @@
     },
 
     applySectionVisibility(stepId) {
-      const hideQuestions = stepId === "fase-2" || stepId === "fase-3" || stepId === "fase-4" || stepId === "fase-5";
-      const hideCriteria = stepId === "fase-2" || stepId === "fase-4" || stepId === "fase-5";
+      const hideQuestions = stepId === "fase-2" || stepId === "fase-3" || stepId === "fase-4" || stepId === "fase-5" || stepId === "fase-6" || stepId === "fase-7";
+      const hideCriteria = stepId === "fase-2" || stepId === "fase-4" || stepId === "fase-5" || stepId === "fase-6";
 
       if (hideQuestions) {
         dom.questionsSection?.setAttribute("hidden", "hidden");
@@ -3265,10 +3265,20 @@
     },
 
     updateButtons() {
+      const currentStep = WIZARD_STEPS[this.state.currentStep];
       dom.backButton.disabled = this.state.currentStep === 0;
       dom.nextButton.disabled = this.state.currentStep === WIZARD_STEPS.length - 1;
+      if (currentStep.id === "fase-1") {
+        dom.backButton.setAttribute("hidden", "hidden");
+      } else {
+        dom.backButton.removeAttribute("hidden");
+      }
+      if (currentStep.id === "fase-7") {
+        dom.nextButton.setAttribute("hidden", "hidden");
+      } else {
+        dom.nextButton.removeAttribute("hidden");
+      }
 
-      const currentStep = WIZARD_STEPS[this.state.currentStep];
       const done = this.state.completedSteps.has(this.state.currentStep);
       const isReady = this.isCurrentStepCompletionReady();
       dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
