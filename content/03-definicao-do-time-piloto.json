@@ -1,0 +1,307 @@
+{
+  "scoreBands": [
+    {
+      "id": "baixo",
+      "label": "Baixo",
+      "min": 0,
+      "max": 1.67
+    },
+    {
+      "id": "medio",
+      "label": "Médio",
+      "min": 1.67,
+      "max": 2.34
+    },
+    {
+      "id": "alto",
+      "label": "Alto",
+      "min": 2.34,
+      "max": 99
+    }
+  ],
+  "impactPriority": [
+    "autonomia",
+    "feedbackSpeed",
+    "senioridade",
+    "segurancaPsicologica",
+    "estabilidadeRoadmap"
+  ],
+  "inputModes": [
+    {
+      "id": "squad",
+      "label": "Por squad",
+      "description": "Seleciona um time de produto completo como candidato principal do piloto."
+    },
+    {
+      "id": "individuos",
+      "label": "Por indivíduos",
+      "description": "Monta a célula piloto por pessoas-chave com papéis complementares."
+    },
+    {
+      "id": "gestao",
+      "label": "Por gestão",
+      "description": "Define o piloto por liderança responsável e contexto de governança."
+    }
+  ],
+  "requiredFieldsByMode": {
+    "squad": [
+      "teamName",
+      "members",
+      "operationalContext",
+      "rationale"
+    ],
+    "individuos": [
+      "leadName",
+      "individuals",
+      "pilotScope",
+      "rationale"
+    ],
+    "gestao": [
+      "managerName",
+      "governanceContext",
+      "teamStructure",
+      "rationale"
+    ]
+  },
+  "fieldLabels": {
+    "teamName": "Nome do squad",
+    "members": "Membros (nomes e funções)",
+    "operationalContext": "Contexto operacional atual",
+    "leadName": "Nome do responsável técnico",
+    "individuals": "Lista de indivíduos (nome, função, senioridade)",
+    "pilotScope": "Escopo inicial do piloto",
+    "managerName": "Nome da liderança responsável",
+    "governanceContext": "Contexto de governança",
+    "teamStructure": "Estrutura do time piloto",
+    "rationale": "Racional da escolha"
+  },
+  "dimensions": [
+    {
+      "id": "autonomia",
+      "label": "Autonomia Técnica",
+      "weight": 2,
+      "question": "O time candidato pode tomar decisões técnicas e experimentar ferramentas sem aprovações externas ao squad?",
+      "options": [
+        {
+          "id": "baixo",
+          "label": "Baixo · 1,0",
+          "score": 1,
+          "summary": "Dependência recorrente de aprovações externas para decisões técnicas."
+        },
+        {
+          "id": "medio",
+          "label": "Médio · 2,0",
+          "score": 2,
+          "summary": "Autonomia para decisões rotineiras, com exceções relevantes."
+        },
+        {
+          "id": "alto",
+          "label": "Alto · 3,0",
+          "score": 3,
+          "summary": "Squad decide e executa ponta a ponta com autonomia técnica."
+        }
+      ]
+    },
+    {
+      "id": "senioridade",
+      "label": "Senioridade",
+      "weight": 2,
+      "question": "O time tem engenheiros sêniores capazes de avaliar criticamente o output da IA e orientar adoção responsável?",
+      "options": [
+        {
+          "id": "baixo",
+          "label": "Baixo · 1,0",
+          "score": 1,
+          "summary": "Pouca senioridade para revisão crítica e mentoria técnica."
+        },
+        {
+          "id": "medio",
+          "label": "Médio · 2,0",
+          "score": 2,
+          "summary": "Há referências técnicas, mas cobertura de mentoria é parcial."
+        },
+        {
+          "id": "alto",
+          "label": "Alto · 3,0",
+          "score": 3,
+          "summary": "Time tem liderança técnica madura para uso responsável de IA."
+        }
+      ]
+    },
+    {
+      "id": "feedbackSpeed",
+      "label": "Velocidade de Feedback",
+      "weight": 2,
+      "question": "O pipeline de CI/CD do time permite ciclos de feedback rápidos (<10 min) e deploys frequentes?",
+      "options": [
+        {
+          "id": "baixo",
+          "label": "Baixo · 1,0",
+          "score": 1,
+          "summary": "Feedback lento e deploys esporádicos com alta intervenção manual."
+        },
+        {
+          "id": "medio",
+          "label": "Médio · 2,0",
+          "score": 2,
+          "summary": "Feedback moderado, ainda com gargalos operacionais."
+        },
+        {
+          "id": "alto",
+          "label": "Alto · 3,0",
+          "score": 3,
+          "summary": "Feedback rápido, pipeline estável e deploy contínuo."
+        }
+      ]
+    },
+    {
+      "id": "segurancaPsicologica",
+      "label": "Segurança Psicológica",
+      "weight": 1,
+      "question": "O time se sente seguro para experimentar, cometer erros e reportar problemas sem medo de julgamento?",
+      "options": [
+        {
+          "id": "baixo",
+          "label": "Baixo · 1,0",
+          "score": 1,
+          "summary": "Ambiente de baixa segurança para experimentação e aprendizado."
+        },
+        {
+          "id": "medio",
+          "label": "Médio · 2,0",
+          "score": 2,
+          "summary": "Há abertura parcial para aprendizado com risco controlado."
+        },
+        {
+          "id": "alto",
+          "label": "Alto · 3,0",
+          "score": 3,
+          "summary": "Time compartilha falhas e aprendizados com transparência."
+        }
+      ]
+    },
+    {
+      "id": "estabilidadeRoadmap",
+      "label": "Estabilidade de Roadmap",
+      "weight": 1,
+      "question": "O roadmap do time tem estabilidade suficiente para dedicar capacidade ao piloto sem interrupções frequentes?",
+      "options": [
+        {
+          "id": "baixo",
+          "label": "Baixo · 1,0",
+          "score": 1,
+          "summary": "Roadmap volátil impede foco consistente na iniciativa."
+        },
+        {
+          "id": "medio",
+          "label": "Médio · 2,0",
+          "score": 2,
+          "summary": "Há estabilidade parcial com replanejamentos ocasionais."
+        },
+        {
+          "id": "alto",
+          "label": "Alto · 3,0",
+          "score": 3,
+          "summary": "Roadmap previsível com espaço real para o piloto."
+        }
+      ]
+    }
+  ],
+  "toolCatalog": [
+    {
+      "name": "GitHub Copilot",
+      "category": "Codificação",
+      "guidance": "Priorize quando houver necessidade de aceleração em tarefas de código recorrentes.",
+      "prioritizedFor": [
+        "feedbackSpeed",
+        "autonomia"
+      ]
+    },
+    {
+      "name": "Cursor",
+      "category": "Codificação",
+      "guidance": "Indicado para workflows conversacionais e refatoração assistida com contexto do repositório.",
+      "prioritizedFor": [
+        "autonomia",
+        "senioridade"
+      ]
+    },
+    {
+      "name": "CodeRabbit",
+      "category": "Revisão",
+      "guidance": "Útil para reduzir tempo de review e padronizar feedback em PRs.",
+      "prioritizedFor": [
+        "feedbackSpeed",
+        "senioridade"
+      ]
+    },
+    {
+      "name": "Playwright + AI Codegen",
+      "category": "Testes",
+      "guidance": "Ajuda a acelerar cobertura E2E e reduzir risco de regressões do piloto.",
+      "prioritizedFor": [
+        "feedbackSpeed",
+        "estabilidadeRoadmap"
+      ]
+    },
+    {
+      "name": "Notion AI",
+      "category": "Planejamento",
+      "guidance": "Apoia documentação de decisões, prompts e playbook de adoção.",
+      "prioritizedFor": [
+        "segurancaPsicologica",
+        "estabilidadeRoadmap"
+      ]
+    },
+    {
+      "name": "Datadog AI Insights",
+      "category": "Monitoramento",
+      "guidance": "Suporta análise de incidentes e detecção de anomalias no piloto.",
+      "prioritizedFor": [
+        "feedbackSpeed",
+        "segurancaPsicologica"
+      ]
+    }
+  ],
+  "successMetrics": {
+    "baixo": [
+      "Atingir pelo menos 80% de adoção ativa de ao menos 1 ferramenta de IA em 4 semanas.",
+      "Garantir zero incidente crítico em produção causado por código gerado por IA sem revisão.",
+      "Documentar e cumprir processo de revisão obrigatória para 100% das mudanças assistidas por IA."
+    ],
+    "medio": [
+      "Reduzir em 20% o tempo de revisão de PR em relação ao baseline.",
+      "Reduzir em 15% o tempo de codificação em tarefas cobertas por IA.",
+      "Documentar pelo menos 2 casos de uso com ganho mensurável e reproduzível."
+    ],
+    "alto": [
+      "Aumentar em 25% o volume de tarefas concluídas por sprint em relação ao baseline.",
+      "Reduzir em 20% os defeitos reportados por QA/cliente nos módulos do piloto.",
+      "Evoluir ao menos 3 estágios do SDLC para uso de IA em nível de time."
+    ]
+  },
+  "kickoffChecklist": [
+    "Confirmar 100% do time piloto em L1 Aplicador antes do kickoff.",
+    "Definir baseline inicial de métricas de engenharia e qualidade.",
+    "Escolher no máximo 2 ferramentas prioritárias para as primeiras 2 semanas.",
+    "Formalizar processo de revisão obrigatória para output de IA.",
+    "Planejar ritual quinzenal de aprendizado e ajustes do piloto."
+  ],
+  "expansionCriteria": {
+    "baixo": [
+      "Todos os membros do time piloto completaram onboarding nas ferramentas selecionadas.",
+      "Pelo menos 1 processo de revisão de código assistido por IA está documentado e em uso.",
+      "Sem incidentes de produção por uso não supervisionado de IA nos últimos 30 dias."
+    ],
+    "medio": [
+      "Pelo menos 2 fluxos com IA estão documentados com métricas de ganho.",
+      "Metas de velocidade e qualidade do piloto foram atingidas.",
+      "Existe ao menos 1 membro sênior preparado para apoiar outro time."
+    ],
+    "alto": [
+      "Todos os critérios de sucesso do piloto foram atingidos com evidências.",
+      "Governança básica de uso de IA está definida e aplicada no time.",
+      "Resultados do piloto foram apresentados para pelo menos 1 squad candidato à expansão."
+    ]
+  }
+}

@@ -456,6 +456,140 @@ p {
   padding-left: 18px;
 }
 
+.phase-three-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.phase-three-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(32, 21, 21, 0.12);
+  background: #fff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.phase-three-card.locked {
+  opacity: 0.82;
+}
+
+.phase-three-mode-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.phase-three-mode-btn {
+  border: 1px solid rgba(32, 21, 21, 0.12);
+  background: #fff;
+  border-radius: var(--radius-md);
+  padding: 10px;
+  text-align: left;
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.phase-three-mode-btn.selected {
+  border-color: rgba(42, 112, 235, 0.55);
+  box-shadow: inset 0 0 0 2px rgba(42, 112, 235, 0.2);
+  background: rgba(42, 112, 235, 0.06);
+}
+
+.phase-three-form {
+  margin-top: 12px;
+}
+
+.phase-three-form-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.phase-three-form-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--body);
+  font-size: 14px;
+}
+
+.phase-three-form-grid input,
+.phase-three-form-grid textarea {
+  width: 100%;
+  border: 1px solid rgba(32, 21, 21, 0.2);
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 9px 10px;
+  color: var(--ink);
+  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+}
+
+.phase-three-form-grid textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.phase-three-questions {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.phase-three-question {
+  border: 1px solid rgba(32, 21, 21, 0.12);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.phase-three-weight {
+  color: var(--primary);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.phase-three-options {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.phase-three-option {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  border: 1px solid rgba(32, 21, 21, 0.12);
+  border-radius: var(--radius-sm);
+  padding: 9px;
+  cursor: pointer;
+}
+
+.phase-three-option.selected {
+  border-color: rgba(42, 112, 235, 0.5);
+  background: rgba(42, 112, 235, 0.06);
+}
+
+.phase-three-report-content {
+  display: grid;
+  gap: 8px;
+}
+
+.phase-three-list-box {
+  border: 1px solid rgba(32, 21, 21, 0.12);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  background: #fffefb;
+}
+
+.phase-three-list-box h5 {
+  margin: 0;
+}
+
+.phase-three-list-box ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
+
 .diagnosis-hero {
   padding: 18px;
   border-radius: var(--radius-lg);

@@ -2,6 +2,7 @@
   const STORAGE_KEY = "ai-adoption-data-wizard-state";
   const DIAGNOSIS_CONFIG_FILE = "content/01-diagnostico-organizacional-e-de-engenharia.json";
   const PHASE_TWO_CONFIG_FILE = "content/02-time-ai-enablers.json";
+  const PHASE_THREE_CONFIG_FILE = "content/03-definicao-do-time-piloto.json";
 
   const WIZARD_STEPS = [
     {
@@ -67,6 +68,7 @@
   const markdownCache = new Map();
   let diagnosisConfigCache = null;
   let phaseTwoConfigCache = null;
+  let phaseThreeConfigCache = null;
 
   const storageService = {
     loadState() {
@@ -87,6 +89,7 @@
           phaseAnswers: this.sanitizeStepMap(state.phaseAnswers),
           phaseSelections: this.sanitizeStepMap(state.phaseSelections),
           phaseResults: this.sanitizeStepMap(state.phaseResults),
+          phaseReports: this.sanitizeStepMap(state.phaseReports),
           phaseAcknowledged: this.sanitizeBooleanStepMap(state.phaseAcknowledged)
         };
       } catch (error) {
@@ -127,6 +130,7 @@
         phaseAnswers: state.phaseAnswers,
         phaseSelections: state.phaseSelections,
         phaseResults: state.phaseResults,
+        phaseReports: state.phaseReports,
         phaseAcknowledged: state.phaseAcknowledged
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
@@ -507,6 +511,151 @@
     }
   };
 
+  const phaseThreeService = {
+    async loadConfig() {
+      if (phaseThreeConfigCache) {
+        return phaseThreeConfigCache;
+      }
+
+      const response = await fetch(PHASE_THREE_CONFIG_FILE);
+      if (!response.ok) {
+        throw new Error(`failed to load phase three config: ${PHASE_THREE_CONFIG_FILE}`);
+      }
+
+      const config = await response.json();
+      if (!Array.isArray(config.dimensions) || !Array.isArray(config.scoreBands)) {
+        throw new Error("invalid phase three config");
+      }
+
+      phaseThreeConfigCache = config;
+      return phaseThreeConfigCache;
+    },
+
+    calculateResult(config, answers = {}) {
+      const scoredDimensions = config.dimensions
+        .map((dimension) => {
+          const selectedOptionId = answers[dimension.id];
+          const selectedOption = dimension.options.find((option) => option.id === selectedOptionId);
+          if (!selectedOption) {
+            return null;
+          }
+
+          const weight = Number(dimension.weight);
+          const score = Number(selectedOption.score);
+          return {
+            dimensionId: dimension.id,
+            label: dimension.label,
+            weight,
+            score,
+            weightedScore: score * weight,
+            optionLabel: selectedOption.label,
+            summary: selectedOption.summary
+          };
+        })
+        .filter(Boolean);
+
+      const answeredCount = scoredDimensions.length;
+      const total = config.dimensions.length;
+      const weightedTotal = scoredDimensions.reduce((acc, item) => acc + item.weightedScore, 0);
+      const maxWeight = config.dimensions.reduce((acc, item) => acc + Number(item.weight), 0);
+      const readinessScore = maxWeight ? weightedTotal / maxWeight : 0;
+      const overallBand = this.resolveBand(config.scoreBands, readinessScore);
+      const bottleneck = this.getBottleneck(config, scoredDimensions);
+      const completion = total ? Math.round((answeredCount / total) * 100) : 0;
+
+      return {
+        answeredCount,
+        total,
+        completion,
+        readinessScore,
+        overallBand,
+        scoredDimensions,
+        bottleneck
+      };
+    },
+
+    resolveBand(scoreBands, score) {
+      const matched = scoreBands.find((band) => score >= band.min && score < band.max);
+      return matched || scoreBands[scoreBands.length - 1];
+    },
+
+    getBottleneck(config, scoredDimensions) {
+      if (!scoredDimensions.length) {
+        return null;
+      }
+      const minScore = Math.min(...scoredDimensions.map((item) => item.score));
+      const candidates = scoredDimensions.filter((item) => item.score === minScore);
+      const priorityMap = config.impactPriority.reduce((acc, dimensionId, index) => {
+        acc[dimensionId] = index;
+        return acc;
+      }, {});
+
+      return candidates.sort((a, b) => {
+        const aRank = priorityMap[a.dimensionId] ?? Number.MAX_SAFE_INTEGER;
+        const bRank = priorityMap[b.dimensionId] ?? Number.MAX_SAFE_INTEGER;
+        return aRank - bRank;
+      })[0];
+    },
+
+    validateSelection(config, selection = {}) {
+      const mode = selection.mode;
+      if (!mode || !config.inputModes.some((inputMode) => inputMode.id === mode)) {
+        return {
+          valid: false,
+          missing: ["Selecione o modo de avaliação do candidato ao piloto."]
+        };
+      }
+
+      const modeFields = config.requiredFieldsByMode[mode] || [];
+      const missing = modeFields
+        .filter((field) => !(selection[field] && String(selection[field]).trim()))
+        .map((field) => {
+          const label = config.fieldLabels[field] || field;
+          return `Preencha: ${label}.`;
+        });
+
+      return {
+        valid: missing.length === 0,
+        missing
+      };
+    },
+
+    buildRecommendations(config, result) {
+      const bottleneckId = result.bottleneck?.dimensionId;
+      const tools = config.toolCatalog.filter((tool) => {
+        if (!bottleneckId) {
+          return true;
+        }
+        return tool.prioritizedFor.includes(bottleneckId);
+      });
+
+      return {
+        tools: tools.slice(0, 6),
+        metrics: config.successMetrics[result.overallBand.id] || [],
+        expansionCriteria: config.expansionCriteria[result.overallBand.id] || [],
+        kickoffChecklist: config.kickoffChecklist || []
+      };
+    },
+
+    buildExecutiveReport(config, selection, result, recommendations) {
+      const modeMeta = config.inputModes.find((item) => item.id === selection.mode);
+      const candidateName = selection.teamName || selection.leadName || selection.managerName || "Não informado";
+      const rationale = selection.rationale || "Racional não informado.";
+
+      return {
+        generatedAt: new Date().toISOString(),
+        mode: selection.mode,
+        modeLabel: modeMeta?.label || selection.mode,
+        candidateName,
+        rationale,
+        readinessScore: result.readinessScore,
+        readinessLevel: result.overallBand.label,
+        bottleneck: result.bottleneck,
+        recommendations
+      };
+    }
+  };
+
   const dom = {
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
@@ -539,6 +688,7 @@
       phaseAnswers: {},
       phaseSelections: {},
       phaseResults: {},
+      phaseReports: {},
       phaseAcknowledged: {}
     },
 
@@ -633,6 +783,9 @@
       if (currentStep.id === "fase-2") {
         return this.isPhaseTwoGateSatisfied();
       }
+      if (currentStep.id === "fase-3") {
+        return this.isPhaseThreeGateSatisfied();
+      }
       return this.isStepAcknowledged(currentStep.id);
     },
 
@@ -680,6 +833,61 @@
       return parts.length ? `${parts.join(" | ")}.` : "Conclua a Fase 2 para avançar.";
     },
 
+    isPhaseThreeGateSatisfied() {
+      const result = this.state.phaseResults["fase-3"];
+      const selection = this.state.phaseSelections["fase-3"] || {};
+      const report = this.state.phaseReports["fase-3"];
+      const acknowledged = Boolean(this.state.phaseAcknowledged["fase-3"]);
+
+      return Boolean(
+        result
+        && result.answeredCount === result.total
+        && selection.mode
+        && report
+        && acknowledged
+      );
+    },
+
+    async getPhaseThreeMissingItems() {
+      const config = await phaseThreeService.loadConfig();
+      const selection = this.state.phaseSelections["fase-3"] || {};
+      const validation = phaseThreeService.validateSelection(config, selection);
+      const result = this.state.phaseResults["fase-3"];
+      const answeredCount = result?.answeredCount || 0;
+      const total = result?.total || config.dimensions.length;
+      const needsAcknowledgment = !Boolean(this.state.phaseAcknowledged["fase-3"]);
+      const needsReport = !Boolean(this.state.phaseReports["fase-3"]);
+
+      return {
+        missingSelection: validation.missing,
+        answeredCount,
+        total,
+        needsAcknowledgment,
+        needsReport
+      };
+    },
+
+    async buildPhaseThreeGateMessage() {
+      const pending = await this.getPhaseThreeMissingItems();
+      const parts = [];
+      if (pending.missingSelection.length) {
+        parts.push(pending.missingSelection.join(" "));
+      }
+      if (pending.answeredCount < pending.total) {
+        parts.push(
+          `Responda todas as dimensões de prontidão (${pending.answeredCount}/${pending.total} respondidas).`
+        );
+      }
+      if (pending.needsReport) {
+        parts.push("Complete os campos mínimos para gerar o resumo executivo da Fase 3.");
+      }
+      if (pending.needsAcknowledgment) {
+        parts.push("Marque a confirmação de entendimento da Fase 3.");
+      }
+
+      return parts.length ? parts.join(" | ") : "Conclua a Fase 3 para avançar.";
+    },
+
     showGateMessage(message) {
       dom.gateMessage.textContent = message;
       dom.gateMessage.removeAttribute("hidden");
@@ -699,6 +907,7 @@
       const sections = markdownService.extractStepSections(stepText);
       const isPhaseOne = step.id === "fase-1";
       const isPhaseTwo = step.id === "fase-2";
+      const isPhaseThree = step.id === "fase-3";
 
       if (isPhaseOne) {
         dom.summaryTitle.textContent = "Objetivo da fase";
@@ -732,6 +941,8 @@
 
         if (isPhaseTwo) {
           await this.renderPhaseTwoInteractive();
+        } else if (isPhaseThree) {
+          await this.renderPhaseThreeInteractive();
         } else {
           dom.diagnosisInteractive.innerHTML = "";
           dom.diagnosisInteractive.setAttribute("hidden", "hidden");
@@ -1063,6 +1274,209 @@
       });
     },
 
+    escapeHtml(value) {
+      return markdownService.escapeHtml(String(value || ""));
+    },
+
+    buildPhaseThreeModeForm(config, modeId, selection) {
+      if (!modeId) {
+        return "<p>Selecione um modo de avaliação para preencher os dados do candidato.</p>";
+      }
+
+      if (modeId === "squad") {
+        return `
+          <div class="phase-three-form-grid">
+            <label><span>Nome do squad</span><input type="text" data-phase-three-field="teamName" value="${this.escapeHtml(selection.teamName || "")}"></label>
+            <label><span>Membros (nomes e funções)</span><textarea data-phase-three-field="members">${this.escapeHtml(selection.members || "")}</textarea></label>
+            <label><span>Contexto operacional atual</span><textarea data-phase-three-field="operationalContext">${this.escapeHtml(selection.operationalContext || "")}</textarea></label>
+            <label><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
+          </div>
+        `;
+      }
+
+      if (modeId === "individuos") {
+        return `
+          <div class="phase-three-form-grid">
+            <label><span>Nome do responsável técnico</span><input type="text" data-phase-three-field="leadName" value="${this.escapeHtml(selection.leadName || "")}"></label>
+            <label><span>Lista de indivíduos (nome, função, senioridade)</span><textarea data-phase-three-field="individuals">${this.escapeHtml(selection.individuals || "")}</textarea></label>
+            <label><span>Escopo inicial do piloto</span><textarea data-phase-three-field="pilotScope">${this.escapeHtml(selection.pilotScope || "")}</textarea></label>
+            <label><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="phase-three-form-grid">
+          <label><span>Nome da liderança responsável</span><input type="text" data-phase-three-field="managerName" value="${this.escapeHtml(selection.managerName || "")}"></label>
+          <label><span>Contexto de governança</span><textarea data-phase-three-field="governanceContext">${this.escapeHtml(selection.governanceContext || "")}</textarea></label>
+          <label><span>Estrutura do time piloto</span><textarea data-phase-three-field="teamStructure">${this.escapeHtml(selection.teamStructure || "")}</textarea></label>
+          <label><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
+        </div>
+      `;
+    },
+
+    renderPhaseThreeReport(result, report, recommendations) {
+      if (!report) {
+        return "<p>Preencha os campos mínimos e responda as 5 dimensões para gerar o resumo executivo da Fase 3.</p>";
+      }
+
+      return `
+        <div class="phase-three-report-content">
+          <p><strong>Candidato selecionado:</strong> ${this.escapeHtml(report.candidateName)}</p>
+          <p><strong>Modo de avaliação:</strong> ${this.escapeHtml(report.modeLabel)}</p>
+          <p><strong>Racional da escolha:</strong> ${this.escapeHtml(report.rationale)}</p>
+          <p><strong>Score de prontidão:</strong> ${result.readinessScore.toFixed(2)} · <strong>Nível:</strong> ${this.escapeHtml(result.overallBand.label)}</p>
+          <p><strong>Principal risco/gargalo:</strong> ${report.bottleneck ? this.escapeHtml(report.bottleneck.label) : "N/A"}</p>
+
+          <div class="phase-three-list-box">
+            <h5>Checklist de kickoff do piloto</h5>
+            <ul>${recommendations.kickoffChecklist.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+          </div>
+
+          <div class="phase-three-list-box">
+            <h5>Ferramentas sugeridas por contexto</h5>
+            <ul>
+              ${recommendations.tools.map((tool) => `<li><strong>${this.escapeHtml(tool.name)}</strong> (${this.escapeHtml(tool.category)}): ${this.escapeHtml(tool.guidance)}</li>`).join("")}
+            </ul>
+          </div>
+
+          <div class="phase-three-list-box">
+            <h5>Métricas de sucesso (nível ${this.escapeHtml(result.overallBand.label)})</h5>
+            <ul>${recommendations.metrics.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+          </div>
+
+          <div class="phase-three-list-box">
+            <h5>Critérios de expansão após o piloto</h5>
+            <ul>${recommendations.expansionCriteria.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+          </div>
+        </div>
+      `;
+    },
+
+    async renderPhaseThreeInteractive() {
+      const config = await phaseThreeService.loadConfig();
+      const stepKey = "fase-3";
+      const answers = this.state.phaseAnswers[stepKey] || {};
+      const selection = this.state.phaseSelections[stepKey] || {};
+      const result = phaseThreeService.calculateResult(config, answers);
+      const recommendations = phaseThreeService.buildRecommendations(config, result);
+      const validation = phaseThreeService.validateSelection(config, selection);
+      const canBuildReport = validation.valid && result.answeredCount === result.total;
+      const report = canBuildReport
+        ? phaseThreeService.buildExecutiveReport(config, selection, result, recommendations)
+        : null;
+
+      this.state.phaseResults[stepKey] = {
+        ...result,
+        recommendations
+      };
+      this.state.phaseReports[stepKey] = report;
+
+      dom.diagnosisInteractive.removeAttribute("hidden");
+      dom.diagnosisInteractive.innerHTML = `
+        <div class="phase-three-shell">
+          <div class="diagnosis-hero">
+            <p class="diagnosis-tag">Time Piloto</p>
+            <h3>Definição de candidato e prontidão operacional</h3>
+            <p class="phase-two-intro">
+              Defina quem conduzirá a iniciativa, avalie prontidão nas 5 dimensões críticas e gere um
+              direcionamento completo de kickoff, métricas e expansão.
+            </p>
+          </div>
+
+          <section class="phase-three-card">
+            <h4>1) Modo de avaliação do candidato</h4>
+            <div class="phase-three-mode-grid">
+              ${config.inputModes.map((mode) => {
+                const selected = selection.mode === mode.id;
+                return `
+                  <button type="button" class="phase-three-mode-btn${selected ? " selected" : ""}" data-phase-three-mode="${mode.id}">
+                    <strong>${this.escapeHtml(mode.label)}</strong>
+                    <span>${this.escapeHtml(mode.description)}</span>
+                  </button>
+                `;
+              }).join("")}
+            </div>
+            <div class="phase-three-form">
+              ${this.buildPhaseThreeModeForm(config, selection.mode, selection)}
+            </div>
+          </section>
+
+          <section class="phase-three-card">
+            <h4>2) Diagnóstico de prontidão (scoring ponderado)</h4>
+            <p class="diagnosis-progress">Respondidas: <strong>${result.answeredCount}/${result.total}</strong></p>
+            <div class="phase-three-questions">
+              ${config.dimensions.map((dimension, index) => `
+                <article class="phase-three-question">
+                  <div class="question-head">
+                    <p class="question-index">Dimensão ${index + 1}</p>
+                    <span class="phase-three-weight">Peso ${dimension.weight}x</span>
+                  </div>
+                  <h5>${this.escapeHtml(dimension.label)}</h5>
+                  <p class="question-text">${this.escapeHtml(dimension.question)}</p>
+                  <div class="phase-three-options">
+                    ${dimension.options.map((option) => {
+                      const checked = answers[dimension.id] === option.id;
+                      return `
+                        <label class="phase-three-option${checked ? " selected" : ""}">
+                          <input type="radio" name="phase-three-${dimension.id}" data-phase-three-dimension-id="${dimension.id}" data-option-id="${option.id}" ${checked ? "checked" : ""}>
+                          <span><strong>${this.escapeHtml(option.label)}</strong> · ${this.escapeHtml(option.summary)}</span>
+                        </label>
+                      `;
+                    }).join("")}
+                  </div>
+                </article>
+              `).join("")}
+            </div>
+          </section>
+
+          <section class="phase-three-card${report ? "" : " locked"}">
+            <h4>3) Resumo executivo + checklist</h4>
+            ${this.renderPhaseThreeReport(result, report, recommendations)}
+          </section>
+        </div>
+      `;
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-three-mode]").forEach((button) => {
+        button.addEventListener("click", (event) => {
+          const mode = event.currentTarget.dataset.phaseThreeMode;
+          const previous = this.state.phaseSelections[stepKey] || {};
+          this.state.phaseSelections[stepKey] = {
+            ...previous,
+            mode
+          };
+          this.clearGateMessage();
+          this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-three-field]").forEach((input) => {
+        input.addEventListener("input", (event) => {
+          const field = event.target.dataset.phaseThreeField;
+          const previous = this.state.phaseSelections[stepKey] || {};
+          this.state.phaseSelections[stepKey] = {
+            ...previous,
+            [field]: event.target.value
+          };
+          this.clearGateMessage();
+          this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelectorAll("input[data-phase-three-dimension-id]").forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const { phaseThreeDimensionId, optionId } = event.target.dataset;
+          const previous = this.state.phaseAnswers[stepKey] || {};
+          this.state.phaseAnswers[stepKey] = {
+            ...previous,
+            [phaseThreeDimensionId]: optionId
+          };
+          this.clearGateMessage();
+          this.render();
+        });
+      });
+    },
+
     renderNavigation() {
       dom.stepsNav.innerHTML = WIZARD_STEPS.map((step, index) => `
         <button class="step-item" data-step-index="${index}" type="button">
@@ -1127,6 +1541,10 @@
           this.showGateMessage(await this.buildPhaseTwoGateMessage());
           return;
         }
+        if (missing.includes(2)) {
+          this.showGateMessage(await this.buildPhaseThreeGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[index].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
@@ -1154,6 +1572,10 @@
           this.showGateMessage(await this.buildPhaseTwoGateMessage());
           return;
         }
+        if (missing.includes(2)) {
+          this.showGateMessage(await this.buildPhaseThreeGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[nextStepIndex].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
@@ -1174,7 +1596,7 @@
       this.render();
     },
 
-    markCurrentStepCompleted() {
+    async markCurrentStepCompleted() {
       const currentStep = WIZARD_STEPS[this.state.currentStep];
       if (!this.isCurrentStepCompletionReady()) {
         if (currentStep.id === "fase-1") {
@@ -1185,6 +1607,10 @@
           this.showGateMessage(
             "Selecione arquétipo, proficiência, responda as 4 competências e confirme o entendimento para concluir a Fase 2."
           );
+          return;
+        }
+        if (currentStep.id === "fase-3") {
+          this.showGateMessage(await this.buildPhaseThreeGateMessage());
           return;
         }
         this.showGateMessage(`Confirme o entendimento da Fase ${currentStep.order} para concluí-la.`);
@@ -1203,6 +1629,7 @@
     markdownService,
     diagnosisService,
     phaseTwoService,
+    phaseThreeService,
     wizardController
   };
 

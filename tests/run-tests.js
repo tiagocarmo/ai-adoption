@@ -90,6 +90,114 @@ const context = {
     }
   },
   fetch: async (path) => {
+    if (path.endsWith("03-definicao-do-time-piloto.json")) {
+      return {
+        ok: true,
+        json: async () => ({
+          scoreBands: [
+            { id: "baixo", label: "Baixo", min: 0, max: 1.67 },
+            { id: "medio", label: "Médio", min: 1.67, max: 2.34 },
+            { id: "alto", label: "Alto", min: 2.34, max: 99 }
+          ],
+          impactPriority: ["autonomia", "feedbackSpeed", "senioridade"],
+          inputModes: [
+            { id: "squad", label: "Por squad", description: "d" },
+            { id: "individuos", label: "Por indivíduos", description: "d" },
+            { id: "gestao", label: "Por gestão", description: "d" }
+          ],
+          requiredFieldsByMode: {
+            squad: ["teamName", "members", "operationalContext", "rationale"],
+            individuos: ["leadName", "individuals", "pilotScope", "rationale"],
+            gestao: ["managerName", "governanceContext", "teamStructure", "rationale"]
+          },
+          fieldLabels: {
+            teamName: "Nome do squad",
+            members: "Membros",
+            operationalContext: "Contexto operacional",
+            rationale: "Racional",
+            leadName: "Lead",
+            individuals: "Indivíduos",
+            pilotScope: "Escopo",
+            managerName: "Gestor",
+            governanceContext: "Governança",
+            teamStructure: "Estrutura"
+          },
+          dimensions: [
+            {
+              id: "autonomia",
+              label: "Autonomia Técnica",
+              weight: 2,
+              question: "q",
+              options: [
+                { id: "baixo", label: "B", score: 1, summary: "s" },
+                { id: "medio", label: "M", score: 2, summary: "s" },
+                { id: "alto", label: "A", score: 3, summary: "s" }
+              ]
+            },
+            {
+              id: "feedbackSpeed",
+              label: "Velocidade de Feedback",
+              weight: 2,
+              question: "q",
+              options: [
+                { id: "baixo", label: "B", score: 1, summary: "s" },
+                { id: "medio", label: "M", score: 2, summary: "s" },
+                { id: "alto", label: "A", score: 3, summary: "s" }
+              ]
+            },
+            {
+              id: "senioridade",
+              label: "Senioridade",
+              weight: 2,
+              question: "q",
+              options: [
+                { id: "baixo", label: "B", score: 1, summary: "s" },
+                { id: "medio", label: "M", score: 2, summary: "s" },
+                { id: "alto", label: "A", score: 3, summary: "s" }
+              ]
+            },
+            {
+              id: "segurancaPsicologica",
+              label: "Segurança Psicológica",
+              weight: 1,
+              question: "q",
+              options: [
+                { id: "baixo", label: "B", score: 1, summary: "s" },
+                { id: "medio", label: "M", score: 2, summary: "s" },
+                { id: "alto", label: "A", score: 3, summary: "s" }
+              ]
+            },
+            {
+              id: "estabilidadeRoadmap",
+              label: "Estabilidade de Roadmap",
+              weight: 1,
+              question: "q",
+              options: [
+                { id: "baixo", label: "B", score: 1, summary: "s" },
+                { id: "medio", label: "M", score: 2, summary: "s" },
+                { id: "alto", label: "A", score: 3, summary: "s" }
+              ]
+            }
+          ],
+          toolCatalog: [
+            { name: "Tool 1", category: "Codificação", guidance: "g", prioritizedFor: ["autonomia"] },
+            { name: "Tool 2", category: "Testes", guidance: "g", prioritizedFor: ["feedbackSpeed"] }
+          ],
+          successMetrics: {
+            baixo: ["m1"],
+            medio: ["m2"],
+            alto: ["m3"]
+          },
+          kickoffChecklist: ["c1", "c2"],
+          expansionCriteria: {
+            baixo: ["e1"],
+            medio: ["e2"],
+            alto: ["e3"]
+          }
+        })
+      };
+    }
+
     if (path.endsWith("02-time-ai-enablers.json")) {
       return {
         ok: true,
@@ -194,7 +302,14 @@ const context = {
 vm.createContext(context);
 vm.runInContext(scriptContent, context);
 
-const { markdownService, wizardController, WIZARD_STEPS, diagnosisService, phaseTwoService } = context.window.AIAdoptionWizard;
+const {
+  markdownService,
+  wizardController,
+  WIZARD_STEPS,
+  diagnosisService,
+  phaseTwoService,
+  phaseThreeService
+} = context.window.AIAdoptionWizard;
 
 function testMarkdownParse() {
   const html = markdownService.parseMarkdown(
@@ -386,6 +501,112 @@ function testPhaseTwoScoreAndGate() {
   assert(!wizardController.isPhaseTwoGateSatisfied(), "phase 2 gate must fail without ack");
 }
 
+function testPhaseThreeScoreAndGate() {
+  const config = {
+    scoreBands: [
+      { id: "baixo", label: "Baixo", min: 0, max: 1.67 },
+      { id: "medio", label: "Médio", min: 1.67, max: 2.34 },
+      { id: "alto", label: "Alto", min: 2.34, max: 99 }
+    ],
+    impactPriority: ["autonomia", "feedbackSpeed", "senioridade"],
+    inputModes: [{ id: "squad", label: "Por squad" }],
+    requiredFieldsByMode: { squad: ["teamName", "members", "operationalContext", "rationale"] },
+    fieldLabels: { teamName: "Nome do squad" },
+    dimensions: [
+      {
+        id: "autonomia",
+        label: "Autonomia",
+        weight: 2,
+        options: [
+          { id: "baixo", label: "Baixo", score: 1, summary: "s" },
+          { id: "medio", label: "Médio", score: 2, summary: "s" },
+          { id: "alto", label: "Alto", score: 3, summary: "s" }
+        ]
+      },
+      {
+        id: "feedbackSpeed",
+        label: "Feedback",
+        weight: 2,
+        options: [
+          { id: "baixo", label: "Baixo", score: 1, summary: "s" },
+          { id: "medio", label: "Médio", score: 2, summary: "s" },
+          { id: "alto", label: "Alto", score: 3, summary: "s" }
+        ]
+      },
+      {
+        id: "senioridade",
+        label: "Senioridade",
+        weight: 2,
+        options: [
+          { id: "baixo", label: "Baixo", score: 1, summary: "s" },
+          { id: "medio", label: "Médio", score: 2, summary: "s" },
+          { id: "alto", label: "Alto", score: 3, summary: "s" }
+        ]
+      },
+      {
+        id: "segurancaPsicologica",
+        label: "Segurança",
+        weight: 1,
+        options: [
+          { id: "baixo", label: "Baixo", score: 1, summary: "s" },
+          { id: "medio", label: "Médio", score: 2, summary: "s" },
+          { id: "alto", label: "Alto", score: 3, summary: "s" }
+        ]
+      },
+      {
+        id: "estabilidadeRoadmap",
+        label: "Roadmap",
+        weight: 1,
+        options: [
+          { id: "baixo", label: "Baixo", score: 1, summary: "s" },
+          { id: "medio", label: "Médio", score: 2, summary: "s" },
+          { id: "alto", label: "Alto", score: 3, summary: "s" }
+        ]
+      }
+    ],
+    toolCatalog: [{ name: "Tool", category: "C", guidance: "G", prioritizedFor: ["autonomia"] }],
+    successMetrics: { baixo: ["m1"], medio: ["m2"], alto: ["m3"] },
+    kickoffChecklist: ["c1"],
+    expansionCriteria: { baixo: ["e1"], medio: ["e2"], alto: ["e3"] }
+  };
+
+  const answers = {
+    autonomia: "alto",
+    feedbackSpeed: "medio",
+    senioridade: "medio",
+    segurancaPsicologica: "alto",
+    estabilidadeRoadmap: "medio"
+  };
+  const selection = {
+    mode: "squad",
+    teamName: "Squad X",
+    members: "Ana, Bruno",
+    operationalContext: "Contexto",
+    rationale: "Racional"
+  };
+
+  const result = phaseThreeService.calculateResult(config, answers);
+  assert(result.answeredCount === 5, "phase 3 must count all answered dimensions");
+  assert(result.readinessScore > 2, "phase 3 must compute weighted score");
+
+  const validation = phaseThreeService.validateSelection(config, selection);
+  assert(validation.valid, "phase 3 selection must be valid with required fields");
+
+  const recommendations = phaseThreeService.buildRecommendations(config, result);
+  const report = phaseThreeService.buildExecutiveReport(config, selection, result, recommendations);
+  assert(report.candidateName === "Squad X", "phase 3 report must keep candidate");
+
+  wizardController.state.currentStep = 2;
+  wizardController.state.phaseResults = { "fase-3": { answeredCount: 5, total: 5 } };
+  wizardController.state.phaseSelections = { "fase-3": { mode: "squad" } };
+  wizardController.state.phaseReports = { "fase-3": report };
+  wizardController.state.phaseAcknowledged = { "fase-3": true };
+  assert(wizardController.isPhaseThreeGateSatisfied(), "phase 3 gate must pass when complete");
+
+  wizardController.state.phaseAcknowledged = { "fase-3": false };
+  assert(!wizardController.isPhaseThreeGateSatisfied(), "phase 3 gate must fail without acknowledgment");
+}
+
 function testCanAccessStep() {
   wizardController.state.completedSteps = new Set();
   assert(wizardController.canAccessStep(0), "must allow current phase");
@@ -436,6 +657,16 @@ function testCurrentStepCompletionReadiness() {
 
   wizardController.state.phaseAcknowledged["fase-2"] = true;
   assert(wizardController.isCurrentStepCompletionReady(), "phase 2 should pass with full gate");
+
+  wizardController.state.currentStep = 2;
+  wizardController.state.phaseResults["fase-3"] = { answeredCount: 5, total: 5 };
+  wizardController.state.phaseSelections["fase-3"] = { mode: "squad" };
+  wizardController.state.phaseReports = { "fase-3": { candidateName: "Squad X" } };
+  wizardController.state.phaseAcknowledged["fase-3"] = false;
+  assert(!wizardController.isCurrentStepCompletionReady(), "phase 3 should require acknowledgment");
+
+  wizardController.state.phaseAcknowledged["fase-3"] = true;
+  assert(wizardController.isCurrentStepCompletionReady(), "phase 3 should pass with full gate");
 }
 
 function testQuestionTableRender() {
@@ -497,6 +728,7 @@ async function run() {
     testDiagnosisScoreAndBottleneck,
     testPhaseOneGate,
     testPhaseTwoScoreAndGate,
+    testPhaseThreeScoreAndGate,
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,

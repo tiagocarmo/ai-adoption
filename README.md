@@ -29,7 +29,9 @@ Aplicação frontend em HTML, CSS e JavaScript puro para navegação guiada das 
 │   ├── 01-diagnostico-organizacional-e-de-engenharia.md
 │   ├── 01-diagnostico-organizacional-e-de-engenharia.json
 │   ├── 02-time-ai-enablers.md
+│   ├── 02-time-ai-enablers.json
 │   ├── 03-definicao-do-time-piloto.md
+│   ├── 03-definicao-do-time-piloto.json
 │   ├── 04-remocao-de-gargalos-organizacionais-e-tecnicos.md
 │   ├── 05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.md
 │   ├── 06-governanca-e-padronizacao.md
@@ -86,15 +88,22 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - seleção de nível de proficiência do time (`L0` a `L3`);
   - score combinado de prontidão, risco e direcionamento para a Fase 3;
   - relatório pós-preenchimento com lacunas e recomendações práticas.
+- Fase 3 com experiência interativa completa de Time Piloto:
+  - seleção do modo de avaliação (`squad`, `indivíduos`, `gestão`);
+  - formulário dinâmico por modo com campos de contexto e racional;
+  - diagnóstico de prontidão com 5 dimensões e scoring ponderado (`2x/2x/2x/1x/1x`);
+  - relatório final com resumo executivo, checklist, ferramentas sugeridas e critérios de expansão.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Marcação manual de conclusão por etapa.
 - Barra e anel de progresso.
 - Persistência no `sessionStorage` com chave `ai-adoption-data-wizard-state`.
 - Persistência estendida para respostas, seleções e resultados da Fase 2 no mesmo estado serializado.
+- Persistência estendida para `phaseAnswers`, `phaseSelections`, `phaseResults` e `phaseReports` das fases interativas.
 - Restauração automática do estado ao recarregar.
 - Carregamento dinâmico de conteúdo Markdown em `/content`.
 - Carregamento dinâmico de configuração JSON da Fase 2 em `/content/02-time-ai-enablers.json`.
+- Carregamento dinâmico de configuração JSON da Fase 3 em `/content/03-definicao-do-time-piloto.json`.
 - Parser Markdown leve (sem bibliotecas externas) com suporte a:
   - headings (`#`, `##`, `###`)
   - listas (`-` e `*`)
@@ -128,6 +137,16 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - `goBack()`
   - `markCurrentStepCompleted()`
   - `render()`
+- `phaseTwoService`
+  - `loadConfig()`
+  - `calculateResult(config, answers, selections)`
+  - `buildRecommendations(config, result)`
+- `phaseThreeService`
+  - `loadConfig()`
+  - `calculateResult(config, answers)`
+  - `validateSelection(config, selection)`
+  - `buildRecommendations(config, result)`
+  - `buildExecutiveReport(config, selection, result, recommendations)`
 
 ### Estratégia de extração semântica
 
@@ -154,6 +173,8 @@ Cobertura atual:
 - Sanitização de HTML.
 - Extração de seções com fallback.
 - Cálculo de score e gargalo da Fase 1.
+- Cálculo de score combinado e gate da Fase 2.
+- Cálculo de score ponderado, relatório e gate da Fase 3.
 - Limites de navegação (`Voltar/Próximo`).
 - Marcação de etapa concluída.
 
