@@ -93,6 +93,11 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - formulário dinâmico por modo com campos de contexto e racional;
   - diagnóstico de prontidão com 5 dimensões e scoring ponderado (`2x/2x/2x/1x/1x`);
   - relatório final com resumo executivo, checklist, ferramentas sugeridas e critérios de expansão.
+- Fase 4 com experiência interativa completa de Remoção de Gargalos:
+  - backlog editável por trilha (`Técnica`, `Organizacional`, `Cultura`);
+  - priorização automática por score (`impacto`, `esforço`, `risco`);
+  - classificação dos itens em `Crítico` e `Médio`;
+  - geração automática de plano 30/90/180 por trilha com critério de conclusão.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Marcação manual de conclusão por etapa.
@@ -104,6 +109,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 - Carregamento dinâmico de conteúdo Markdown em `/content`.
 - Carregamento dinâmico de configuração JSON da Fase 2 em `/content/02-time-ai-enablers.json`.
 - Carregamento dinâmico de configuração JSON da Fase 3 em `/content/03-definicao-do-time-piloto.json`.
+- Carregamento dinâmico de configuração JSON da Fase 4 em `/content/04-remocao-de-gargalos-organizacionais-e-tecnicos.json`.
 - Parser Markdown leve (sem bibliotecas externas) com suporte a:
   - headings (`#`, `##`, `###`)
   - listas (`-` e `*`)
@@ -147,6 +153,12 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - `validateSelection(config, selection)`
   - `buildRecommendations(config, result)`
   - `buildExecutiveReport(config, selection, result, recommendations)`
+- `phaseFourService`
+  - `loadConfig()`
+  - `buildInitialBacklog(config, upstreamData)`
+  - `sanitizeBacklog(items)`
+  - `calculatePrioritization(config, items)`
+  - `buildRoadmap(config, prioritizedItems)`
 
 ### Estratégia de extração semântica
 
@@ -175,6 +187,7 @@ Cobertura atual:
 - Cálculo de score e gargalo da Fase 1.
 - Cálculo de score combinado e gate da Fase 2.
 - Cálculo de score ponderado, relatório e gate da Fase 3.
+- Sanitização de backlog, score, roadmap e gate da Fase 4.
 - Limites de navegação (`Voltar/Próximo`).
 - Marcação de etapa concluída.
 

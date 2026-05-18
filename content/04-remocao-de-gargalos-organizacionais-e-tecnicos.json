@@ -1,0 +1,125 @@
+{
+  "trilhas": [
+    {
+      "id": "tecnica",
+      "label": "Trilha Técnica",
+      "descricao": "Remoção de bloqueios técnicos que impedem experimentação e entrega assistida por IA.",
+      "itensBase": [
+        "Débito técnico impedindo adoção de IA",
+        "Pipeline de CI/CD com automação insuficiente",
+        "Cobertura de testes abaixo do mínimo seguro",
+        "Ambiente de desenvolvimento instável ou não reproduzível",
+        "Arquitetura acoplada que dificulta integração de ferramentas",
+        "Ausência de observabilidade adequada em produção"
+      ]
+    },
+    {
+      "id": "organizacional",
+      "label": "Trilha Organizacional",
+      "descricao": "Remoção de bloqueios de processo, ownership e tomada de decisão.",
+      "itensBase": [
+        "Processos de aprovação lentos para adoção de ferramentas",
+        "Falta de ownership claro sobre iniciativas de IA",
+        "Ausência de estrutura dedicada (Time AI Enablers)",
+        "Roadmap instável que interrompe experimentos continuamente",
+        "Dependências externas não gerenciadas que bloqueiam decisões",
+        "Falta de patrocínio executivo claro para a iniciativa"
+      ]
+    },
+    {
+      "id": "cultura",
+      "label": "Trilha Cultura",
+      "descricao": "Remoção de bloqueios culturais e de desenvolvimento de capacidade crítica.",
+      "itensBase": [
+        "Resistência ativa ou passiva à adoção de IA",
+        "Medo de julgamento ao experimentar e errar com IA",
+        "Ausência de reconhecimento para iniciativas de adoção",
+        "Falta de capacidade técnica para avaliar output de IA",
+        "Comunicação deficiente sobre valor e objetivos da adoção",
+        "Ausência de campeões de IA nos squads"
+      ]
+    }
+  ],
+  "dimensoesMapeadas": {
+    "Autonomia": {
+      "trilhaId": "organizacional",
+      "gargalo": "Baixa autonomia do time para experimentação sem aprovações constantes"
+    },
+    "Cont. Delivery": {
+      "trilhaId": "tecnica",
+      "gargalo": "Pipeline de entrega contínua sem automação suficiente para ciclos curtos"
+    },
+    "Qualidade": {
+      "trilhaId": "tecnica",
+      "gargalo": "Ausência de práticas sistemáticas de qualidade para validar output de IA"
+    },
+    "Vel. Feedback": {
+      "trilhaId": "tecnica",
+      "gargalo": "Ciclo de feedback lento em revisão e deploy"
+    },
+    "Ownership": {
+      "trilhaId": "organizacional",
+      "gargalo": "Ownership difuso e dependência excessiva de poucos decisores"
+    },
+    "DX & Código": {
+      "trilhaId": "tecnica",
+      "gargalo": "Experiência de desenvolvimento degradada com setup complexo e ambientes instáveis"
+    },
+    "Senioridade": {
+      "trilhaId": "cultura",
+      "gargalo": "Capacidade limitada de revisão crítica das saídas de IA"
+    },
+    "Flex. Org.": {
+      "trilhaId": "organizacional",
+      "gargalo": "Rigidez organizacional reduz ritmo de experimentação"
+    },
+    "Uso de IA": {
+      "trilhaId": "cultura",
+      "gargalo": "Uso de IA não padronizado e sem critérios compartilhados"
+    }
+  },
+  "regrasPontuacao": {
+    "escala": {
+      "min": 1,
+      "max": 3
+    },
+    "pesos": {
+      "impacto": 3,
+      "esforcoInverso": 2,
+      "risco": 2
+    },
+    "formula": "score = (impacto * 3) + ((4 - esforco) * 2) + (risco * 2)",
+    "classificacao": {
+      "critical": {
+        "label": "Crítico",
+        "min": 11,
+        "max": 15
+      },
+      "medium": {
+        "label": "Médio",
+        "min": 7,
+        "max": 10
+      }
+    }
+  },
+  "marcos": [
+    {
+      "id": "d30",
+      "label": "+30 dias",
+      "foco": "Itens críticos de maior impacto e menor esforço (vitórias rápidas)",
+      "criterioConclusao": "Bloqueadores imediatos removidos; time consegue experimentar com IA sem impedimentos do dia a dia."
+    },
+    {
+      "id": "d90",
+      "label": "+90 dias",
+      "foco": "Itens de médio esforço que criam infraestrutura para adoção sustentável",
+      "criterioConclusao": "Base técnica e organizacional suficiente para expandir adoção além do time piloto."
+    },
+    {
+      "id": "d180",
+      "label": "+180 dias",
+      "foco": "Itens estruturais de alto esforço que garantem escala e sustentabilidade",
+      "criterioConclusao": "Organização operando com IA de forma sistemática, com governança e métricas estabelecidas."
+    }
+  ]
+}

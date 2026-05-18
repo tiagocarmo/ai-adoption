@@ -308,7 +308,8 @@ const {
   WIZARD_STEPS,
   diagnosisService,
   phaseTwoService,
-  phaseThreeService
+  phaseThreeService,
+  phaseFourService
 } = context.window.AIAdoptionWizard;
 
 function testMarkdownParse() {
@@ -440,6 +441,83 @@ function testPhaseOneGate() {
 
   wizardController.state.phaseAcknowledged = { "fase-1": true };
   assert(wizardController.isPhaseOneGateSatisfied(), "gate must pass with 9/9 + acknowledgment");
+}
+
+function testPhaseFourSanitizeAndPrioritization() {
+  const config = {
+    regrasPontuacao: {
+      classificacao: {
+        critical: { label: "Crítico", min: 11, max: 15 },
+        medium: { label: "Médio", min: 7, max: 10 }
+      }
+    },
+    trilhas: [
+      { id: "tecnica", label: "Trilha Técnica" },
+      { id: "organizacional", label: "Trilha Organizacional" },
+      { id: "cultura", label: "Trilha Cultura" }
+    ],
+    marcos: []
+  };
+
+  const rawItems = [
+    { id: "a", trilhaId: "tecnica", descricao: "A", impacto: 3, esforco: 1, risco: 3 },
+    { id: "b", trilhaId: "tecnica", descricao: "A", impacto: 3, esforco: 1, risco: 3 },
+    { id: "c", trilhaId: "organizacional", descricao: "B", impacto: 1, esforco: 3, risco: 1 },
+    { id: "d", trilhaId: "cultura", descricao: "", impacto: 2, esforco: 2, risco: 2 }
+  ];
+
+  const sanitized = phaseFourService.sanitizeBacklog(rawItems);
+  assert(sanitized.length === 2, "must remove duplicates and invalid empty items");
+
+  const prioritized = phaseFourService.calculatePrioritization(config, rawItems);
+  assert(prioritized.prioritizedItems.length === 2, "must prioritize only valid items");
+  assert(prioritized.prioritizedItems[0].score === 21, "must apply score formula");
+  assert(prioritized.prioritizedItems[0].priority.id === "critical", "must classify critical score");
+  assert(prioritized.prioritizedItems[1].priority.id === "medium", "must classify medium score");
+}
+
+function testPhaseFourRoadmap() {
+  const config = {
+    marcos: [
+      { id: "d30", label: "+30 dias", foco: "f", criterioConclusao: "c" },
+      { id: "d90", label: "+90 dias", foco: "f", criterioConclusao: "c" },
+      { id: "d180", label: "+180 dias", foco: "f", criterioConclusao: "c" }
+    ]
+  };
+
+  const roadmap = phaseFourService.buildRoadmap(config, [
+    { id: "a", priority: { id: "critical" }, esforco: 1 },
+    { id: "b", priority: { id: "critical" }, esforco: 2 },
+    { id: "c", priority: { id: "medium" }, esforco: 3 }
+  ]);
+
+  assert(roadmap.d30.length === 1, "critical + low effort must go to d30");
+  assert(roadmap.d90.length === 1, "remaining medium effort must go to d90");
+  assert(roadmap.d180.length === 1, "high effort must go to d180");
+}
+
+async function testPhaseFourGate() {
+  wizardController.state.phaseResults = {
+    "fase-4": {
+      hasMinimumByTrack: false,
+      invalidCount: 1,
+      roadmapItemCount: 0
+    }
+  };
+  wizardController.state.phaseAcknowledged = { "fase-4": false };
+  assert(!wizardController.isPhaseFourGateSatisfied(), "phase 4 gate must fail with missing criteria");
+  const failMessage = await wizardController.buildPhaseFourGateMessage();
+  assert(failMessage.includes("ao menos 1 gargalo"), "must explain missing track criteria");
+
+  wizardController.state.phaseResults = {
+    "fase-4": {
+      hasMinimumByTrack: true,
+      invalidCount: 0,
+      roadmapItemCount: 3
+    }
+  };
+  wizardController.state.phaseAcknowledged = { "fase-4": true };
+  assert(wizardController.isPhaseFourGateSatisfied(), "phase 4 gate must pass when complete");
 }
 
 function testPhaseTwoScoreAndGate() {
@@ -727,6 +805,9 @@ async function run() {
     testExtractSectionsSemantic,
     testDiagnosisScoreAndBottleneck,
     testPhaseOneGate,
+    testPhaseFourSanitizeAndPrioritization,
+    testPhaseFourRoadmap,
+    testPhaseFourGate,
     testPhaseTwoScoreAndGate,
     testPhaseThreeScoreAndGate,
     testCanAccessStep,
