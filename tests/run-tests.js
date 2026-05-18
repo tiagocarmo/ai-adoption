@@ -481,6 +481,30 @@ function testImportPayloadValidation() {
   assert(!invalid.valid, "must reject incomplete wizardState");
 }
 
+function testWelcomeLabels() {
+  const indexHtml = fs.readFileSync("./index.html", "utf8");
+  assert(indexHtml.includes(">Iniciar</button>"), "welcome primary action must be 'Iniciar'");
+  assert(indexHtml.includes(">Carregar JSON</button>"), "welcome secondary action must be 'Carregar JSON'");
+}
+
+async function testStartFromZeroFlow() {
+  context.sessionStorage.data = {
+    "ai-adoption-data-wizard-state": "{\"currentStep\":6}",
+    "ai-adoption-data-temp": "old",
+    external: "keep"
+  };
+  elements["#welcomeScreen"].attributes = {};
+  elements["#wizardShell"].attributes = {};
+
+  await wizardController.startFromZero();
+
+  assert(wizardController.isWelcomeVisible === false, "must mark welcome as hidden after start");
+  assert(elements["#welcomeScreen"].attributes.hidden === "hidden", "must hide welcome screen");
+  assert(!("hidden" in elements["#wizardShell"].attributes), "must reveal wizard shell");
+  assert(!("ai-adoption-data-temp" in context.sessionStorage.data), "must clean prefixed storage keys");
+  assert(context.sessionStorage.data.external === "keep", "must keep unrelated storage keys");
+}
+
 function testMarkdownParse() {
   const html = markdownService.parseMarkdown(
     "# Titulo\n\n## Secao\nTexto **forte**\n\n- item 1\n* item 2\n\n> citação\n\n---"
@@ -1368,6 +1392,8 @@ async function run() {
   const tests = [
     testStoragePrefixCleanup,
     testImportPayloadValidation,
+    testWelcomeLabels,
+    testStartFromZeroFlow,
     testMarkdownParse,
     testMarkdownParagraphFlow,
     testMarkdownTableParse,

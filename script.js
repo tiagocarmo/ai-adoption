@@ -1535,6 +1535,7 @@
 
   const wizardController = {
     state: createInitialWizardState(),
+    isWelcomeVisible: true,
 
     async init() {
       this.renderNavigation();
@@ -1570,6 +1571,7 @@
     },
 
     showWelcomeScreen() {
+      this.isWelcomeVisible = true;
       dom.welcomeScreen.removeAttribute("hidden");
       dom.wizardShell.setAttribute("hidden", "hidden");
       this.clearWelcomeMessage();
@@ -1578,9 +1580,11 @@
     async startWizard() {
       const restoredState = storageService.loadState();
       this.state = restoredState || createInitialWizardState();
+      this.isWelcomeVisible = false;
       dom.welcomeScreen.setAttribute("hidden", "hidden");
       dom.wizardShell.removeAttribute("hidden");
       this.clearGateMessage();
+      this.scrollToTop();
       await this.render();
     },
 
