@@ -316,7 +316,21 @@ function testWizardBoundaries() {
   );
 }
 
-function run() {
+async function testPhaseOneGateMessage() {
+  wizardController.state.phaseAnswers = { "fase-1": {} };
+  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  let message = await wizardController.buildPhaseOneGateMessage();
+  assert(message.includes("Questões não respondidas"), "must list unanswered questions");
+  assert(message.includes("Marque a confirmação"), "must ask for acknowledgment");
+
+  wizardController.state.phaseAnswers = { "fase-1": { q1: "high", q2: "medium" } };
+  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  message = await wizardController.buildPhaseOneGateMessage();
+  assert(!message.includes("Questões não respondidas"), "must skip unanswered list when all are answered");
+  assert(message.includes("Marque a confirmação"), "must keep acknowledgment guidance");
+}
+
+async function run() {
   const tests = [
     testMarkdownParse,
     testMarkdownTableParse,
@@ -327,11 +341,12 @@ function run() {
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,
-    testWizardBoundaries
+    testWizardBoundaries,
+    testPhaseOneGateMessage
   ];
 
   for (const testFn of tests) {
-    testFn();
+    await testFn();
   }
 
   console.log(`ok - ${tests.length} tests passed`);

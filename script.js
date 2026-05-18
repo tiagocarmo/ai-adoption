@@ -487,6 +487,32 @@
       return Boolean(answeredAll && acknowledged);
     },
 
+    async getPhaseOneMissingItems() {
+      const config = await diagnosisService.loadConfig();
+      const answers = this.state.phaseAnswers["fase-1"] || {};
+      const missingQuestionNumbers = config.questions
+        .map((question, index) => ({ question, number: index + 1 }))
+        .filter(({ question }) => !answers[question.id])
+        .map(({ number }) => number);
+
+      return {
+        missingQuestionNumbers,
+        needsAcknowledgment: !Boolean(this.state.phaseAcknowledged["fase-1"])
+      };
+    },
+
+    async buildPhaseOneGateMessage() {
+      const pending = await this.getPhaseOneMissingItems();
+      const parts = [];
+      if (pending.missingQuestionNumbers.length) {
+        parts.push(`Questões não respondidas: ${pending.missingQuestionNumbers.join(", ")}`);
+      }
+      if (pending.needsAcknowledgment) {
+        parts.push("Marque a confirmação de entendimento do diagnóstico");
+      }
+      return parts.length ? `${parts.join(" | ")}.` : "Conclua a Fase 1 para avançar.";
+    },
+
     isStepAcknowledged(stepId) {
       return Boolean(this.state.phaseAcknowledged[stepId]);
     },
@@ -532,8 +558,7 @@
         dom.criteriaContent.innerHTML = markdownService.parseMarkdown(sections.recommendations || "Conteúdo indisponível.");
 
         await this.renderDiagnosisInteractive(sections.diagnosisQuestions || "Conteúdo indisponível.");
-        dom.phaseAcknowledgment.innerHTML = "";
-        dom.phaseAcknowledgment.setAttribute("hidden", "hidden");
+        this.renderPhaseAcknowledgment(step);
       } else {
         dom.summaryTitle.textContent = "Descrição resumida";
         dom.summaryContent.innerHTML = markdownService.parseMarkdown(sections.intro || "Conteúdo indisponível.");
@@ -562,11 +587,14 @@
 
     renderPhaseAcknowledgment(step) {
       const acknowledged = this.isStepAcknowledged(step.id);
+      const label = step.id === "fase-1"
+        ? "Entendi o diagnóstico da organização neste momento."
+        : `Entendi a avaliação da ${step.title} neste momento.`;
       dom.phaseAcknowledgment.removeAttribute("hidden");
       dom.phaseAcknowledgment.innerHTML = `
         <label class="ack-box">
           <input type="checkbox" id="stepAckCheckbox" ${acknowledged ? "checked" : ""}>
-          <span>Entendi a avaliação da ${step.title} neste momento.</span>
+          <span>${label}</span>
         </label>
       `;
 
@@ -587,7 +615,6 @@
       const stepKey = "fase-1";
       const answers = this.state.phaseAnswers[stepKey] || {};
       const result = diagnosisService.calculateResult(config, answers);
-      const acknowledged = Boolean(this.state.phaseAcknowledged[stepKey]);
 
       this.state.phaseResults[stepKey] = result;
 
@@ -636,11 +663,6 @@
                 <h5>Principal gargalo</h5>
                 <p>${bottleneck ? `${bottleneck.label} (${bottleneck.optionLabel})` : "N/A"}</p>
               </div>
-
-              <label class="ack-box">
-                <input type="checkbox" id="phaseOneAck" ${acknowledged ? "checked" : ""}>
-                <span>Entendi o diagnóstico da organização neste momento.</span>
-              </label>
             </aside>
           ` : ""}
         </div>
@@ -658,15 +680,6 @@
           this.render();
         });
       });
-
-      const ackInput = dom.diagnosisInteractive.querySelector("#phaseOneAck");
-      if (ackInput) {
-        ackInput.addEventListener("change", (event) => {
-          this.state.phaseAcknowledged[stepKey] = event.target.checked;
-          this.clearGateMessage();
-          this.render();
-        });
-      }
     },
 
     renderQuestionCard(question, selectedOptionId, position) {
@@ -753,13 +766,17 @@
       });
     },
 
-    goToStep(index) {
+    async goToStep(index) {
       if (!Number.isInteger(index) || index < 0 || index >= WIZARD_STEPS.length) {
         return;
       }
 
       if (!this.canAccessStep(index)) {
         const missing = this.getMissingDependencies(index);
+        if (missing.includes(0)) {
+          this.showGateMessage(await this.buildPhaseOneGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[index].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
@@ -771,7 +788,7 @@
       this.render();
     },
 
-    goNext() {
+    async goNext() {
       if (this.state.currentStep >= WIZARD_STEPS.length - 1) {
         return;
       }
@@ -779,6 +796,10 @@
       const nextStepIndex = this.state.currentStep + 1;
       if (!this.canAccessStep(nextStepIndex)) {
         const missing = this.getMissingDependencies(nextStepIndex);
+        if (missing.includes(0)) {
+          this.showGateMessage(await this.buildPhaseOneGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[nextStepIndex].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
