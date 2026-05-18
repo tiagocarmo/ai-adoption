@@ -1530,8 +1530,8 @@
     },
 
     applySectionVisibility(stepId) {
-      const hideQuestions = stepId === "fase-2" || stepId === "fase-3" || stepId === "fase-4";
-      const hideCriteria = stepId === "fase-2" || stepId === "fase-4";
+      const hideQuestions = stepId === "fase-2" || stepId === "fase-3" || stepId === "fase-4" || stepId === "fase-5";
+      const hideCriteria = stepId === "fase-2" || stepId === "fase-4" || stepId === "fase-5";
 
       if (hideQuestions) {
         dom.questionsSection?.setAttribute("hidden", "hidden");
@@ -2427,7 +2427,7 @@
 
           <aside class="phase-five-card">
             <h4>4) Síntese executiva</h4>
-            <p><strong>Distribuição:</strong> none (${report.levelsDistribution.none || 0}) · experimental (${report.levelsDistribution.experimental || 0}) · team (${report.levelsDistribution.team || 0}) · org (${report.levelsDistribution.org || 0})</p>
+            <p><strong>Distribuição:</strong> ${config.levels.map((level) => `${this.escapeHtml(level.label)} (${report.levelsDistribution[level.id] || 0})`).join(" · ")}</p>
             <p><strong>Riscos detectados:</strong> ${report.highRiskStages.length ? this.escapeHtml(report.highRiskStages.join(", ")) : "Nenhum risco alto por automação total."}</p>
             <div class="phase-five-checklist">
               <p><strong>Checklist final</strong></p>

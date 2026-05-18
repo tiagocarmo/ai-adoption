@@ -104,15 +104,15 @@
     }
   ],
   "levels": [
-    { "id": "none", "label": "none" },
-    { "id": "experimental", "label": "experimental" },
-    { "id": "team", "label": "team" },
-    { "id": "org", "label": "org" }
+    { "id": "none", "label": "Nenhuma" },
+    { "id": "experimental", "label": "Experimental" },
+    { "id": "team", "label": "Time" },
+    { "id": "org", "label": "Organização" }
   ],
   "responsibilityOptions": [
     { "id": "ia", "label": "IA" },
-    { "id": "human", "label": "Human" },
-    { "id": "shared", "label": "Shared" }
+    { "id": "human", "label": "Humana" },
+    { "id": "shared", "label": "Compartilhada" }
   ],
   "stages": [
     {

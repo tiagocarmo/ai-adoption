@@ -981,9 +981,45 @@ function testSectionVisibilityByPhase() {
   assert(elements["#questionsSection"].attributes.hidden === "hidden", "phase 4 must hide questions section");
   assert(elements["#criteriaSection"].attributes.hidden === "hidden", "phase 4 must hide criteria section");
 
+  wizardController.applySectionVisibility("fase-5");
+  assert(elements["#questionsSection"].attributes.hidden === "hidden", "phase 5 must hide questions section");
+  assert(elements["#criteriaSection"].attributes.hidden === "hidden", "phase 5 must hide criteria section");
+
   wizardController.applySectionVisibility("fase-6");
   assert(!elements["#questionsSection"].attributes.hidden, "phase 6 must show questions section");
   assert(!elements["#criteriaSection"].attributes.hidden, "phase 6 must show criteria section");
+}
+
+function testPhaseFiveLocalizedLabelsRender() {
+  const config = {
+    stages: [{ id: "observabilidade", label: "Observabilidade", antiPatterns: [], advancementCriteria: [] }],
+    levels: [
+      { id: "none", label: "Nenhuma" },
+      { id: "experimental", label: "Experimental" },
+      { id: "team", label: "Time" },
+      { id: "org", label: "Organização" }
+    ],
+    responsibilityOptions: [
+      { id: "ia", label: "IA" },
+      { id: "human", label: "Humana" },
+      { id: "shared", label: "Compartilhada" }
+    ]
+  };
+
+  const row = {
+    stageId: "observabilidade",
+    levelId: "team",
+    responsibilityId: "shared",
+    selectedAntiPatterns: [],
+    selectedCriteria: []
+  };
+
+  const html = wizardController.renderPhaseFiveStageRow(config, row);
+  assert(html.includes("Nenhuma"), "phase 5 should render localized level label");
+  assert(html.includes("Experimental"), "phase 5 should render localized level label");
+  assert(html.includes("Organização"), "phase 5 should render localized level label");
+  assert(html.includes("Humana"), "phase 5 should render localized responsibility label");
+  assert(html.includes("Compartilhada"), "phase 5 should render localized responsibility label");
 }
 
 async function testPhaseOneGateMessage() {
@@ -1032,6 +1068,7 @@ async function run() {
     testPhaseThreeScoreAndGate,
     testPhaseFiveTemplateAndCalibration,
     testPhaseFiveValidationAndGate,
+    testPhaseFiveLocalizedLabelsRender,
     testPhaseSixGovernancePack,
     testCanAccessStep,
     testMissingDependencies,
