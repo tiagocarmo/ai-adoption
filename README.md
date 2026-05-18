@@ -16,6 +16,7 @@ Aplicação frontend em HTML, CSS e JavaScript puro para navegação guiada das 
 ├── script.js
 ├── /content
 │   ├── 01-diagnostico-organizacional-e-de-engenharia.md
+│   ├── 01-diagnostico-organizacional-e-de-engenharia.json
 │   ├── 02-time-ai-enablers.md
 │   ├── 03-definicao-do-time-piloto.md
 │   ├── 04-remocao-de-gargalos-organizacionais-e-tecnicos.md
@@ -67,6 +68,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 ## Funcionalidades implementadas
 
 - Wizard SPA com 7 etapas na ordem oficial.
+- Fase 1 com diagnóstico interativo (9 perguntas, score em tempo real e gargalo principal).
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Marcação manual de conclusão por etapa.
@@ -78,6 +80,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - headings (`#`, `##`, `###`)
   - listas (`-` e `*`)
   - parágrafos
+  - tabelas Markdown (`| ... |`)
   - negrito (`**texto**`)
   - blocos de citação (`>`)
   - separadores (`---`)
@@ -130,8 +133,25 @@ Cobertura atual:
 - Parser Markdown: headings, listas, parágrafos, negrito, blockquote e separador.
 - Sanitização de HTML.
 - Extração de seções com fallback.
+- Cálculo de score e gargalo da Fase 1.
 - Limites de navegação (`Voltar/Próximo`).
 - Marcação de etapa concluída.
+
+Validação E2E com Playwright CLI (cenário da Fase 1):
+
+```bash
+export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"
+export PWCLI="$CODEX_HOME/skills/playwright/scripts/playwright_cli.sh"
+npx serve public -l 4173
+"$PWCLI" open http://localhost:4173
+```
+
+Aprendizados de validação desta iteração:
+
+- Validar em produção quando o objetivo for checar comportamento já publicado.
+- Validar em servidor local (`public/`) quando a mudança ainda não estiver em deploy.
+- Não tratar `404` de `favicon.ico` como falha de cenário funcional.
+- Critério de aceite técnico usado: testes unitários passantes + build passante + E2E do cenário crítico passante.
 
 ## Como adicionar novas etapas
 

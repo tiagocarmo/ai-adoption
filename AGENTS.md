@@ -17,3 +17,9 @@ Após cada commit, é obrigatório executar a validação de cenário via Playwr
 A validação deve usar a URL adequada do ambiente: por padrão produção (`https://tiagocarmo.github.io/ai-adoption/`) e, quando aplicável, ambiente local correspondente para mudanças ainda não publicadas.
 
 Um commit só é considerado concluído após a validação do cenário crítico sem erro.
+
+Aprendizados de processo para validação:
+
+- Para mudanças não publicadas, validar em ambiente local servido a partir de `public/` (ex.: `npx serve public -l 4173`) para evitar falso negativo de deploy desatualizado.
+- Em validações Playwright MCP/CLI, aceitar como erro não crítico apenas `404` de `favicon.ico` quando não impactar o fluxo funcional validado.
+- O fluxo mínimo de checagem antes de concluir trabalho é: `node tests/run-tests.js` + `npm run build` + cenário crítico E2E via Playwright MCP/CLI.

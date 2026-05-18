@@ -1,0 +1,297 @@
+{
+  "title": "Diagnóstico Organizacional e de Engenharia",
+  "description": "Responda as 9 dimensões para calcular o score de prontidão, identificar gargalos e priorizar ações de adoção de IA.",
+  "scoreBands": [
+    {
+      "id": "low",
+      "label": "Baixo",
+      "min": 0,
+      "max": 1.67,
+      "interpretation": "Organização com bloqueios significativos para adoção de IA."
+    },
+    {
+      "id": "medium",
+      "label": "Médio",
+      "min": 1.67,
+      "max": 2.34,
+      "interpretation": "Organização com base relevante, mas com gaps que pedem atenção prioritária."
+    },
+    {
+      "id": "high",
+      "label": "Alto",
+      "min": 2.34,
+      "max": 999,
+      "interpretation": "Organização pronta para adoção acelerada e sustentável de IA."
+    }
+  ],
+  "blockMetadata": [
+    {
+      "id": "A",
+      "title": "Cultura & Autonomia"
+    },
+    {
+      "id": "B",
+      "title": "Maturidade Operacional"
+    },
+    {
+      "id": "C",
+      "title": "Capacidade Técnica & IA"
+    }
+  ],
+  "impactPriority": [
+    "autonomia-engenharia",
+    "maturidade-continuous-delivery",
+    "maturidade-qualidade",
+    "velocidade-feedback",
+    "ownership-accountability",
+    "developer-experience-codigo",
+    "maturidade-uso-ia",
+    "senioridade-engenharia",
+    "flexibilidade-organizacional"
+  ],
+  "questions": [
+    {
+      "id": "autonomia-engenharia",
+      "block": "A",
+      "title": "Autonomia de Engenharia",
+      "prompt": "Os engenheiros conseguem liderar funcionalidades de ponta a ponta sem depender de aprovações externas ao squad?",
+      "impact": "Baixa autonomia reduz velocidade de experimentação e bloqueia integração de IA no fluxo.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "A maior parte das decisões técnicas depende de aprovações externas e comitês."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Autonomia para decisões rotineiras, mas mudanças estruturais ainda exigem escalada frequente."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Squad decide arquitetura, tecnologia e deploy com ownership técnico completo."
+        }
+      ]
+    },
+    {
+      "id": "flexibilidade-organizacional",
+      "block": "A",
+      "title": "Flexibilidade Organizacional",
+      "prompt": "Quanto tempo o time leva para iniciar experimentos formais com nova prática ou ferramenta?",
+      "impact": "Aprovações lentas fazem o time perder janelas de adoção de IA.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "Leva meses e depende de múltiplas aprovações sem critério claro."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Há processo definido, mas o ciclo costuma levar de 4 a 8 semanas."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Experimentos formais começam em menos de 2 semanas com decisão orientada por evidências."
+        }
+      ]
+    },
+    {
+      "id": "ownership-accountability",
+      "block": "A",
+      "title": "Ownership e Accountability",
+      "prompt": "Incidentes em produção são resolvidos e analisados pelo próprio squad com ações preventivas?",
+      "impact": "Sem ownership real de produção, IA em observabilidade e operação perde eficácia.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "Incidentes são escalados para times externos e RCA raramente é conduzida pelo squad."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Squad participa da operação, mas ainda depende bastante de suporte especializado."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Squad tem ownership completo de produção com aprendizado documentado por incidente."
+        }
+      ]
+    },
+    {
+      "id": "maturidade-continuous-delivery",
+      "block": "B",
+      "title": "Maturidade de Continuous Delivery",
+      "prompt": "Com que frequência há deploy em produção e qual o nível de automação do pipeline?",
+      "impact": "Deploys raros e manuais impedem IA integrada ao ciclo de entrega.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "Deploy mensal (ou menor frequência), com alto esforço manual e risco operacional."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Deploy semanal com automação parcial e etapas manuais para produção."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Deploy diário ou múltiplas vezes por semana com pipeline totalmente automatizado."
+        }
+      ]
+    },
+    {
+      "id": "maturidade-qualidade",
+      "block": "B",
+      "title": "Maturidade de Qualidade",
+      "prompt": "Qual o nível de testes automatizados e ownership de qualidade do próprio time de engenharia?",
+      "impact": "Sem testes confiáveis, a adoção de IA para geração/refatoração de código fica arriscada.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "Cobertura baixa e inconsistente; QA manual separado sustenta a qualidade."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Cobertura razoável em fluxos principais, mas ainda com gaps de integração e consistência."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Cobertura alta e quality gates no CI bloqueiam regressões automaticamente."
+        }
+      ]
+    },
+    {
+      "id": "velocidade-feedback",
+      "block": "B",
+      "title": "Velocidade de Feedback",
+      "prompt": "Quanto tempo leva do commit até feedback técnico completo e primeiro sinal de produção?",
+      "impact": "Feedback lento aumenta custo de validar sugestões de IA e reduz aprendizado.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "CI acima de 30 minutos e detecção de problemas em produção ocorre tardiamente."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Feedback técnico em 10 a 30 minutos com monitoramento básico."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Feedback em menos de 10 minutos e monitoramento proativo em produção."
+        }
+      ]
+    },
+    {
+      "id": "developer-experience-codigo",
+      "block": "C",
+      "title": "Developer Experience e Qualidade do Código",
+      "prompt": "Como está a arquitetura do código, onboarding e produtividade no dia a dia?",
+      "impact": "Código muito acoplado limita o valor prático que IA consegue gerar.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "Débito técnico alto, onboarding lento e ambiente local instável."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Base mista, com partes saudáveis e outras com débito relevante."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Arquitetura modular/documentada e onboarding rápido com ambiente reproduzível."
+        }
+      ]
+    },
+    {
+      "id": "maturidade-uso-ia",
+      "block": "C",
+      "title": "Maturidade no Uso de IA",
+      "prompt": "Qual a profundidade da integração de IA no fluxo de desenvolvimento?",
+      "impact": "Mostra prontidão real para avançar além do uso pontual de assistentes.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "Uso eventual e individual, sem padrão, governança ou incentivo claro."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Uso frequente para sugestões/completions, mas pouco uso em testes, review e docs."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "IA integrada em múltiplas etapas com medição de impacto e melhoria contínua."
+        }
+      ]
+    },
+    {
+      "id": "senioridade-engenharia",
+      "block": "C",
+      "title": "Senioridade da Engenharia",
+      "prompt": "Qual a proporção de engenheiros seniores/staff capazes de decisões técnicas complexas?",
+      "impact": "Senioridade baixa dificulta avaliar criticamente outputs de IA.",
+      "options": [
+        {
+          "id": "low",
+          "label": "Baixo",
+          "score": 1,
+          "description": "Menos de 20% de seniores/staff; decisões complexas dependem de poucos ou externos."
+        },
+        {
+          "id": "medium",
+          "label": "Médio",
+          "score": 2,
+          "description": "Entre 20% e 40%; boa capacidade para rotina, com apoio externo em casos mais complexos."
+        },
+        {
+          "id": "high",
+          "label": "Alto",
+          "score": 3,
+          "description": "Mais de 40%; autonomia técnica forte com mentoria ativa no time."
+        }
+      ]
+    }
+  ]
+}

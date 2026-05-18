@@ -1,5 +1,6 @@
 (() => {
   const STORAGE_KEY = "ai-adoption-data-wizard-state";
+  const DIAGNOSIS_CONFIG_FILE = "content/01-diagnostico-organizacional-e-de-engenharia.json";
 
   const WIZARD_STEPS = [
     {
@@ -54,6 +55,7 @@
   ];
 
   const markdownCache = new Map();
+  let diagnosisConfigCache = null;
 
   const storageService = {
     loadState() {
@@ -62,13 +64,17 @@
         if (!rawState) {
           return null;
         }
+
         const state = JSON.parse(rawState);
         if (typeof state.currentStep !== "number" || !Array.isArray(state.completedSteps)) {
           return null;
         }
+
         return {
           currentStep: Math.max(0, Math.min(WIZARD_STEPS.length - 1, state.currentStep)),
-          completedSteps: new Set(state.completedSteps.filter((value) => Number.isInteger(value)))
+          completedSteps: new Set(state.completedSteps.filter((value) => Number.isInteger(value))),
+          phaseAnswers: this.sanitizeStepMap(state.phaseAnswers),
+          phaseResults: this.sanitizeStepMap(state.phaseResults)
         };
       } catch (error) {
         console.error("error loading wizard state", error);
@@ -76,10 +82,26 @@
       }
     },
 
+    sanitizeStepMap(value) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) {
+        return {};
+      }
+      const safe = {};
+      Object.entries(value).forEach(([key, mapValue]) => {
+        if (!mapValue || typeof mapValue !== "object" || Array.isArray(mapValue)) {
+          return;
+        }
+        safe[key] = mapValue;
+      });
+      return safe;
+    },
+
     saveState(state) {
       const serializable = {
         currentStep: state.currentStep,
-        completedSteps: Array.from(state.completedSteps)
+        completedSteps: Array.from(state.completedSteps),
+        phaseAnswers: state.phaseAnswers,
+        phaseResults: state.phaseResults
       };
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
     },
@@ -115,7 +137,7 @@
         if (!paragraphBuffer.length) {
           return;
         }
-        html.push(`<p>${paragraphBuffer.join(" ")}</p>`);
+        html.push(`<p>${paragraphBuffer.join("<br>")}</p>`);
         paragraphBuffer = [];
       };
 
@@ -127,79 +149,101 @@
         listBuffer = [];
       };
 
-      const safeLine = (line) => this.inlineMarkdown(this.escapeHtml(line.trim()));
+      const flushBlocks = () => {
+        flushParagraph();
+        flushList();
+      };
 
-      for (const rawLine of lines) {
+      const safeInline = (value) => this.inlineMarkdown(this.escapeHtml(value.trim()));
+      const isTableLine = (value) => /^\|.+\|$/u.test(value.trim());
+      const isTableSeparator = (value) => /^\|(?:\s*:?-{3,}:?\s*\|)+$/u.test(value.trim());
+
+      const parseTableRow = (line) => line
+        .trim()
+        .slice(1, -1)
+        .split("|")
+        .map((cell) => safeInline(cell));
+
+      for (let index = 0; index < lines.length; index += 1) {
+        const rawLine = lines[index];
         const line = rawLine.trim();
 
         if (!line) {
-          flushParagraph();
-          flushList();
+          flushBlocks();
+          continue;
+        }
+
+        if (isTableLine(line) && isTableSeparator(lines[index + 1] || "")) {
+          flushBlocks();
+
+          const headers = parseTableRow(line);
+          const rows = [];
+          index += 2;
+
+          while (index < lines.length && isTableLine(lines[index])) {
+            rows.push(parseTableRow(lines[index]));
+            index += 1;
+          }
+          index -= 1;
+
+          const headerHtml = `<thead><tr>${headers.map((cell) => `<th>${cell}</th>`).join("")}</tr></thead>`;
+          const bodyHtml = `<tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join("")}</tr>`).join("")}</tbody>`;
+          html.push(`<div class="table-wrap"><table>${headerHtml}${bodyHtml}</table></div>`);
           continue;
         }
 
         const heading = /^(#{1,3})\s+(.+)$/u.exec(line);
         if (heading) {
-          flushParagraph();
-          flushList();
+          flushBlocks();
           const level = heading[1].length;
-          html.push(`<h${level}>${safeLine(heading[2])}</h${level}>`);
+          html.push(`<h${level}>${safeInline(heading[2])}</h${level}>`);
           continue;
         }
 
         if (/^---+$/u.test(line)) {
-          flushParagraph();
-          flushList();
+          flushBlocks();
           html.push("<hr>");
           continue;
         }
 
         const quote = /^>\s?(.*)$/u.exec(line);
         if (quote) {
-          flushParagraph();
-          flushList();
-          html.push(`<blockquote>${safeLine(quote[1])}</blockquote>`);
+          flushBlocks();
+          html.push(`<blockquote>${safeInline(quote[1])}</blockquote>`);
           continue;
         }
 
         const listItem = /^[-*]\s+(.+)$/u.exec(line);
         if (listItem) {
           flushParagraph();
-          listBuffer.push(safeLine(listItem[1]));
+          listBuffer.push(safeInline(listItem[1]));
           continue;
         }
 
         flushList();
-        paragraphBuffer.push(safeLine(line));
+        paragraphBuffer.push(safeInline(line));
       }
 
-      flushParagraph();
-      flushList();
-
+      flushBlocks();
       return html.join("\n");
     },
 
     extractStepSections(mdText) {
       const sections = this.splitSections(mdText);
-      const summary = this.pickSection(sections, ["visão rápida", "objetivo da fase"], "intro");
-      const goals = this.pickSection(sections, ["objetivo da fase", "objetivos"], "firstQuestion");
+      const summary = this.pickSection(sections, ["visão rápida", "objetivo da fase", "objetivo"], "intro");
+      const goals = this.pickSection(sections, ["objetivo da fase", "objetivos", "metodologia de pontuação"], "second");
       const questions = this.pickSection(
         sections,
-        ["as 9 perguntas", "perguntas", "dimensões avaliadas", "questão", "matriz"],
+        ["as 9 perguntas", "perguntas", "dimensões avaliadas", "matriz", "macro-blocos"],
         "mid"
       );
       const criteria = this.pickSection(
         sections,
-        ["conclusão esperada", "critérios", "métricas", "gate", "expansão"],
+        ["conclusão esperada", "critérios", "métricas", "gate", "expansão", "recomendações"],
         "tail"
       );
 
-      return {
-        summary,
-        goals,
-        questions,
-        criteria
-      };
+      return { summary, goals, questions, criteria };
     },
 
     splitSections(mdText) {
@@ -213,17 +257,14 @@
         if (heading) {
           sections.push(current);
           current = { heading: heading[1].toLowerCase(), content: [] };
-        } else {
-          current.content.push(rawLine);
+          continue;
         }
+        current.content.push(rawLine);
       }
       sections.push(current);
 
       return sections
-        .map((section) => ({
-          heading: section.heading,
-          text: section.content.join("\n").trim()
-        }))
+        .map((section) => ({ heading: section.heading, text: section.content.join("\n").trim() }))
         .filter((section) => section.text.length > 0);
     },
 
@@ -236,15 +277,14 @@
       if (fallbackType === "intro") {
         return sections[0]?.text || "Conteúdo não encontrado.";
       }
-      if (fallbackType === "firstQuestion") {
-        return sections.find((section) => section.heading.includes("quest"))?.text || sections[1]?.text || sections[0]?.text;
+      if (fallbackType === "second") {
+        return sections[1]?.text || sections[0]?.text || "Conteúdo não encontrado.";
       }
       if (fallbackType === "mid") {
         const middle = Math.floor(sections.length / 2);
-        return sections[middle]?.text || sections[0]?.text;
+        return sections[middle]?.text || sections[0]?.text || "Conteúdo não encontrado.";
       }
-
-      return sections[sections.length - 1]?.text || sections[0]?.text;
+      return sections[sections.length - 1]?.text || sections[0]?.text || "Conteúdo não encontrado.";
     },
 
     escapeHtml(value) {
@@ -261,6 +301,105 @@
     }
   };
 
+  const diagnosisService = {
+    async loadConfig() {
+      if (diagnosisConfigCache) {
+        return diagnosisConfigCache;
+      }
+
+      const response = await fetch(DIAGNOSIS_CONFIG_FILE);
+      if (!response.ok) {
+        throw new Error(`failed to load diagnosis config: ${DIAGNOSIS_CONFIG_FILE}`);
+      }
+
+      diagnosisConfigCache = await response.json();
+      return diagnosisConfigCache;
+    },
+
+    calculateResult(config, answers = {}) {
+      const scoreByQuestion = {};
+      const blockScores = {};
+      const answeredIds = new Set(Object.keys(answers));
+
+      config.questions.forEach((question) => {
+        const selectedOptionId = answers[question.id];
+        const selectedOption = question.options.find((option) => option.id === selectedOptionId);
+        if (!selectedOption) {
+          return;
+        }
+
+        const score = Number(selectedOption.score);
+        scoreByQuestion[question.id] = {
+          questionId: question.id,
+          block: question.block,
+          label: question.title,
+          score,
+          optionId: selectedOption.id,
+          optionLabel: selectedOption.label
+        };
+
+        if (!blockScores[question.block]) {
+          blockScores[question.block] = [];
+        }
+        blockScores[question.block].push(score);
+      });
+
+      const answeredCount = Object.keys(scoreByQuestion).length;
+      const total = config.questions.length;
+      const allScores = Object.values(scoreByQuestion).map((entry) => entry.score);
+      const average = allScores.length ? allScores.reduce((acc, value) => acc + value, 0) / allScores.length : 0;
+      const overallBand = this.resolveBand(config.scoreBands, average);
+      const blockAverages = Object.entries(blockScores).map(([blockId, values]) => ({
+        blockId,
+        average: values.reduce((acc, value) => acc + value, 0) / values.length
+      }));
+
+      return {
+        answeredCount,
+        total,
+        completion: total ? Math.round((answeredCount / total) * 100) : 0,
+        average,
+        overallBand,
+        answeredIds: Array.from(answeredIds),
+        scoreByQuestion,
+        blockAverages
+      };
+    },
+
+    resolveBand(scoreBands, score) {
+      const matched = scoreBands.find((band) => score >= band.min && score < band.max);
+      if (matched) {
+        return matched;
+      }
+      return scoreBands[scoreBands.length - 1];
+    },
+
+    getBottleneck(config, result) {
+      const entries = Object.values(result.scoreByQuestion);
+      if (!entries.length) {
+        return null;
+      }
+
+      const minScore = Math.min(...entries.map((entry) => entry.score));
+      const candidates = entries.filter((entry) => entry.score === minScore);
+
+      if (candidates.length === 1) {
+        return candidates[0];
+      }
+
+      const impactMap = config.impactPriority.reduce((acc, questionId, index) => {
+        acc[questionId] = index;
+        return acc;
+      }, {});
+
+      return candidates.sort((a, b) => {
+        const aRank = impactMap[a.questionId] ?? Number.MAX_SAFE_INTEGER;
+        const bRank = impactMap[b.questionId] ?? Number.MAX_SAFE_INTEGER;
+        return aRank - bRank;
+      })[0];
+    }
+  };
+
   const dom = {
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
@@ -269,6 +408,7 @@
     goalsContent: document.querySelector("#goalsContent"),
     questionsContent: document.querySelector("#questionsContent"),
     criteriaContent: document.querySelector("#criteriaContent"),
+    diagnosisInteractive: document.querySelector("#diagnosisInteractive"),
     backButton: document.querySelector("#backButton"),
     nextButton: document.querySelector("#nextButton"),
     completeButton: document.querySelector("#completeButton"),
@@ -282,10 +422,12 @@
   const wizardController = {
     state: {
       currentStep: 0,
-      completedSteps: new Set()
+      completedSteps: new Set(),
+      phaseAnswers: {},
+      phaseResults: {}
     },
 
-    init() {
+    async init() {
       const restoredState = storageService.loadState();
       if (restoredState) {
         this.state = restoredState;
@@ -293,7 +435,7 @@
 
       this.renderNavigation();
       this.attachListeners();
-      this.render();
+      await this.render();
     },
 
     attachListeners() {
@@ -320,10 +462,125 @@
       dom.questionsContent.innerHTML = markdownService.parseMarkdown(sections.questions || "Conteúdo indisponível.");
       dom.criteriaContent.innerHTML = markdownService.parseMarkdown(sections.criteria || "Conteúdo indisponível.");
 
+      if (step.id === "fase-1") {
+        await this.renderDiagnosisInteractive();
+      } else {
+        dom.diagnosisInteractive.innerHTML = "";
+        dom.diagnosisInteractive.setAttribute("hidden", "hidden");
+      }
+
       this.updateProgress();
       this.updateButtons();
       this.updateNavigationState();
       storageService.saveState(this.state);
+    },
+
+    async renderDiagnosisInteractive() {
+      const config = await diagnosisService.loadConfig();
+      const stepKey = "fase-1";
+      const answers = this.state.phaseAnswers[stepKey] || {};
+      const result = diagnosisService.calculateResult(config, answers);
+      const bottleneck = diagnosisService.getBottleneck(config, result);
+
+      this.state.phaseResults[stepKey] = result;
+
+      const blockLookup = config.blockMetadata.reduce((acc, block) => {
+        acc[block.id] = block;
+        return acc;
+      }, {});
+
+      dom.diagnosisInteractive.removeAttribute("hidden");
+      dom.diagnosisInteractive.innerHTML = `
+        <div class="diagnosis-hero">
+          <p class="diagnosis-tag">Diagnóstico interativo</p>
+          <h3>${config.title}</h3>
+          <p>${config.description}</p>
+        </div>
+
+        <div class="diagnosis-layout">
+          <div class="diagnosis-questions">
+            <p class="diagnosis-progress">Respondidas: <strong>${result.answeredCount}/${result.total}</strong></p>
+            ${config.questions.map((question, index) => this.renderQuestionCard(question, answers[question.id], index + 1)).join("")}
+          </div>
+
+          <aside class="diagnosis-panel">
+            <h4>Resultado em tempo real</h4>
+            <p class="score-value">${result.average.toFixed(2)}</p>
+            <p class="score-level">Nível: <strong>${result.overallBand.label}</strong></p>
+            <p class="score-description">${result.overallBand.interpretation}</p>
+
+            <div class="score-blocks">
+              ${config.blockMetadata.map((block) => {
+                const blockAverage = result.blockAverages.find((item) => item.blockId === block.id)?.average || 0;
+                const width = Math.max(0, Math.min(100, (blockAverage / 3) * 100));
+                return `
+                  <div class="score-block-item">
+                    <div class="score-block-head">
+                      <span class="block-badge block-${block.id.toLowerCase()}">${block.id}</span>
+                      <span>${block.title}</span>
+                      <span>${blockAverage.toFixed(2)}</span>
+                    </div>
+                    <div class="mini-bar"><span style="width:${width}%"></span></div>
+                  </div>
+                `;
+              }).join("")}
+            </div>
+
+            <div class="score-bottleneck">
+              <h5>Principal gargalo</h5>
+              <p>${bottleneck ? `${bottleneck.label} (${bottleneck.optionLabel})` : "Responda as perguntas para identificar."}</p>
+            </div>
+          </aside>
+        </div>
+      `;
+
+      dom.diagnosisInteractive.querySelectorAll("input[type='radio']").forEach((input) => {
+        input.addEventListener("change", (event) => {
+          const { questionId, optionId } = event.target.dataset;
+          const previous = this.state.phaseAnswers[stepKey] || {};
+          this.state.phaseAnswers[stepKey] = {
+            ...previous,
+            [questionId]: optionId
+          };
+          this.render();
+        });
+      });
+
+    },
+
+    renderQuestionCard(question, selectedOptionId, position) {
+      return `
+        <article class="diagnosis-question-card">
+          <div class="question-head">
+            <p class="question-index">Questão ${position}</p>
+            <span class="block-badge block-${question.block.toLowerCase()}">${question.block}</span>
+          </div>
+          <h4>${question.title}</h4>
+          <p class="question-text">${question.prompt}</p>
+          <p class="question-impact"><strong>Impacto:</strong> ${question.impact}</p>
+
+          <div class="options-grid">
+            ${question.options.map((option) => {
+              const checked = selectedOptionId === option.id;
+              return `
+                <label class="option-card ${checked ? "selected" : ""}">
+                  <input
+                    type="radio"
+                    name="${question.id}"
+                    value="${option.id}"
+                    data-question-id="${question.id}"
+                    data-option-id="${option.id}"
+                    ${checked ? "checked" : ""}
+                  >
+                  <span class="option-label">${option.label}</span>
+                  <span class="option-score">${Number(option.score).toFixed(1)}</span>
+                  <span class="option-desc">${option.description}</span>
+                </label>
+              `;
+            }).join("")}
+          </div>
+        </article>
+      `;
     },
 
     renderNavigation() {
@@ -358,6 +615,17 @@
     updateButtons() {
       dom.backButton.disabled = this.state.currentStep === 0;
       dom.nextButton.disabled = this.state.currentStep === WIZARD_STEPS.length - 1;
+
+      const currentStep = WIZARD_STEPS[this.state.currentStep];
+      if (currentStep.id === "fase-1") {
+        const result = this.state.phaseResults["fase-1"];
+        const isReady = result && result.answeredCount === result.total;
+        const done = this.state.completedSteps.has(this.state.currentStep);
+        dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
+        dom.completeButton.disabled = done || !isReady;
+        return;
+      }
+
       const done = this.state.completedSteps.has(this.state.currentStep);
       dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
       dom.completeButton.disabled = done;
@@ -396,6 +664,14 @@
     },
 
     markCurrentStepCompleted() {
+      const currentStep = WIZARD_STEPS[this.state.currentStep];
+      if (currentStep.id === "fase-1") {
+        const result = this.state.phaseResults["fase-1"];
+        if (!result || result.answeredCount !== result.total) {
+          return;
+        }
+      }
+
       this.state.completedSteps.add(this.state.currentStep);
       this.render();
     }
@@ -405,6 +681,7 @@
     WIZARD_STEPS,
     storageService,
     markdownService,
+    diagnosisService,
     wizardController
   };
 
