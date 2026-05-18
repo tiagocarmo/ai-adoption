@@ -851,6 +851,25 @@ function testPhaseSixGovernancePack() {
   );
 }
 
+function testPhaseSixQuestionRenderPattern() {
+  const question = {
+    id: "orgSize",
+    label: "Tamanho da engenharia",
+    options: [
+      { id: "small", label: "Pequena" },
+      { id: "medium", label: "Média" },
+      { id: "large", label: "Grande" }
+    ]
+  };
+
+  const html = wizardController.renderPhaseSixQuestion(question, "medium", 0);
+  assert(html.includes("phase-three-question"), "phase 6 should use phase 3 question card class");
+  assert(html.includes("phase-three-option"), "phase 6 should use phase 3 option class");
+  assert(html.includes("data-phase-six-question-id=\"orgSize\""), "phase 6 must keep question binding");
+  assert(html.includes("data-option-id=\"medium\""), "phase 6 must keep option binding");
+  assert(html.includes("Pergunta 1"), "phase 6 should show visual question header");
+}
+
 function testCanAccessStep() {
   wizardController.state.completedSteps = new Set();
   assert(wizardController.canAccessStep(0), "must allow current phase");
@@ -1070,6 +1089,7 @@ async function run() {
     testPhaseFiveValidationAndGate,
     testPhaseFiveLocalizedLabelsRender,
     testPhaseSixGovernancePack,
+    testPhaseSixQuestionRenderPattern,
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,

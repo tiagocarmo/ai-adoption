@@ -2570,13 +2570,16 @@
       });
     },
 
-    renderPhaseSixQuestion(question, value) {
+    renderPhaseSixQuestion(question, value, index) {
       return `
-        <article class="phase-six-question">
+        <article class="phase-three-question">
+          <div class="question-head">
+            <p class="question-index">Pergunta ${index + 1}</p>
+          </div>
           <h5>${this.escapeHtml(question.label)}</h5>
-          <div class="phase-six-options">
+          <div class="phase-three-options">
             ${question.options.map((option) => `
-              <label class="phase-six-option${value === option.id ? " selected" : ""}">
+              <label class="phase-three-option${value === option.id ? " selected" : ""}">
                 <input
                   type="radio"
                   name="phase-six-${this.escapeHtml(question.id)}"
@@ -2623,8 +2626,8 @@
 
           <section class="phase-five-card">
             <h4>1) Contexto da organização</h4>
-            <div class="phase-six-question-grid">
-              ${config.questions.map((question) => this.renderPhaseSixQuestion(question, answers[question.id])).join("")}
+            <div class="phase-three-questions">
+              ${config.questions.map((question, index) => this.renderPhaseSixQuestion(question, answers[question.id], index)).join("")}
             </div>
           </section>
 
