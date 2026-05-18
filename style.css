@@ -537,6 +537,14 @@ p {
   margin-bottom: 0;
 }
 
+.phase-acknowledgment {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(32, 21, 21, 0.14);
+  border-radius: var(--radius-md);
+  background: var(--canvas-soft);
+}
+
 .ack-box {
   margin-top: 14px;
   display: flex;
@@ -548,6 +556,10 @@ p {
 
 .ack-box input {
   margin-top: 3px;
+}
+
+.phase-acknowledgment .ack-box {
+  margin-top: 0;
 }
 
 .gate-message {

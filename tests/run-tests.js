@@ -54,6 +54,7 @@ const elements = {
   "#criteriaTitle": createElement(),
   "#criteriaContent": createElement(),
   "#diagnosisInteractive": createElement(),
+  "#phaseAcknowledgment": createElement(),
   "#gateMessage": createElement(),
   "#backButton": createElement(),
   "#nextButton": createElement(),
@@ -266,24 +267,40 @@ function testPhaseOneGate() {
 }
 
 function testCanAccessStep() {
-  wizardController.state.phaseResults = {
-    "fase-1": {
-      answeredCount: 8,
-      total: 9
-    }
-  };
-  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  wizardController.state.completedSteps = new Set();
   assert(wizardController.canAccessStep(0), "must allow current phase");
-  assert(!wizardController.canAccessStep(1), "must block phase 2 before gate");
+  assert(!wizardController.canAccessStep(1), "must block phase 2 without phase 1 completed");
 
-  wizardController.state.phaseResults = {
-    "fase-1": {
-      answeredCount: 9,
-      total: 9
-    }
-  };
+  wizardController.state.completedSteps = new Set([0, 1, 2, 3, 4, 5]);
+  assert(wizardController.canAccessStep(6), "must allow phase 7 when 3,5,6 are completed");
+
+  wizardController.state.completedSteps = new Set([0, 1, 2, 5]);
+  assert(!wizardController.canAccessStep(6), "must block phase 7 when one dependency is missing");
+}
+
+function testMissingDependencies() {
+  wizardController.state.completedSteps = new Set([0, 1]);
+  const missingForFive = wizardController.getMissingDependencies(4);
+  assert(missingForFive.length === 2, "phase 5 should require two dependencies");
+  assert(missingForFive.includes(2), "phase 5 should require phase 3");
+  assert(missingForFive.includes(3), "phase 5 should require phase 4");
+}
+
+function testCurrentStepCompletionReadiness() {
+  wizardController.state.currentStep = 0;
+  wizardController.state.phaseResults = { "fase-1": { answeredCount: 9, total: 9 } };
+  wizardController.state.phaseAcknowledged = { "fase-1": false };
+  assert(!wizardController.isCurrentStepCompletionReady(), "phase 1 should require acknowledgment");
+
   wizardController.state.phaseAcknowledged = { "fase-1": true };
-  assert(wizardController.canAccessStep(1), "must allow phase 2 after gate");
+  assert(wizardController.isCurrentStepCompletionReady(), "phase 1 should pass with 9/9 + ack");
+
+  wizardController.state.currentStep = 1;
+  wizardController.state.phaseAcknowledged = { "fase-1": true, "fase-2": false };
+  assert(!wizardController.isCurrentStepCompletionReady(), "phase 2 should require acknowledgment");
+
+  wizardController.state.phaseAcknowledged["fase-2"] = true;
+  assert(wizardController.isCurrentStepCompletionReady(), "phase 2 should pass with acknowledgment");
 }
 
 function testWizardBoundaries() {
@@ -308,6 +325,8 @@ function run() {
     testDiagnosisScoreAndBottleneck,
     testPhaseOneGate,
     testCanAccessStep,
+    testMissingDependencies,
+    testCurrentStepCompletionReadiness,
     testWizardBoundaries
   ];
 

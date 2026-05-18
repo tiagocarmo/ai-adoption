@@ -53,6 +53,15 @@
       file: "content/07-escala-organizacional.md"
     }
   ];
+  const STEP_DEPENDENCIES = {
+    0: [],
+    1: [0],
+    2: [1],
+    3: [2],
+    4: [2, 3],
+    5: [2, 3, 4],
+    6: [2, 4, 5]
+  };
 
   const markdownCache = new Map();
   let diagnosisConfigCache = null;
@@ -404,6 +413,7 @@
     criteriaTitle: document.querySelector("#criteriaTitle"),
     criteriaContent: document.querySelector("#criteriaContent"),
     diagnosisInteractive: document.querySelector("#diagnosisInteractive"),
+    phaseAcknowledgment: document.querySelector("#phaseAcknowledgment"),
     gateMessage: document.querySelector("#gateMessage"),
     backButton: document.querySelector("#backButton"),
     nextButton: document.querySelector("#nextButton"),
@@ -446,11 +456,28 @@
       });
     },
 
-    canAccessStep(index) {
-      if (index <= 0) {
-        return true;
+    getStepDependencies(index) {
+      return STEP_DEPENDENCIES[index] || [];
+    },
+
+    getMissingDependencies(index) {
+      const dependencies = this.getStepDependencies(index);
+      return dependencies.filter((dependencyIndex) => !this.state.completedSteps.has(dependencyIndex));
+    },
+
+    formatPhaseList(indexes) {
+      const labels = indexes.map((index) => `Fase ${WIZARD_STEPS[index].order}`);
+      if (labels.length <= 1) {
+        return labels[0] || "fase anterior";
       }
-      return this.isPhaseOneGateSatisfied();
+      if (labels.length === 2) {
+        return `${labels[0]} e ${labels[1]}`;
+      }
+      return `${labels.slice(0, -1).join(", ")} e ${labels[labels.length - 1]}`;
+    },
+
+    canAccessStep(index) {
+      return this.getMissingDependencies(index).length === 0;
     },
 
     isPhaseOneGateSatisfied() {
@@ -458,6 +485,18 @@
       const answeredAll = result && result.answeredCount === result.total;
       const acknowledged = Boolean(this.state.phaseAcknowledged["fase-1"]);
       return Boolean(answeredAll && acknowledged);
+    },
+
+    isStepAcknowledged(stepId) {
+      return Boolean(this.state.phaseAcknowledged[stepId]);
+    },
+
+    isCurrentStepCompletionReady() {
+      const currentStep = WIZARD_STEPS[this.state.currentStep];
+      if (currentStep.id === "fase-1") {
+        return this.isPhaseOneGateSatisfied();
+      }
+      return this.isStepAcknowledged(currentStep.id);
     },
 
     showGateMessage(message) {
@@ -493,6 +532,8 @@
         dom.criteriaContent.innerHTML = markdownService.parseMarkdown(sections.recommendations || "Conteúdo indisponível.");
 
         await this.renderDiagnosisInteractive(sections.diagnosisQuestions || "Conteúdo indisponível.");
+        dom.phaseAcknowledgment.innerHTML = "";
+        dom.phaseAcknowledgment.setAttribute("hidden", "hidden");
       } else {
         dom.summaryTitle.textContent = "Descrição resumida";
         dom.summaryContent.innerHTML = markdownService.parseMarkdown(sections.intro || "Conteúdo indisponível.");
@@ -510,12 +551,35 @@
 
         dom.diagnosisInteractive.innerHTML = "";
         dom.diagnosisInteractive.setAttribute("hidden", "hidden");
+        this.renderPhaseAcknowledgment(step);
       }
 
       this.updateProgress();
       this.updateButtons();
       this.updateNavigationState();
       storageService.saveState(this.state);
+    },
+
+    renderPhaseAcknowledgment(step) {
+      const acknowledged = this.isStepAcknowledged(step.id);
+      dom.phaseAcknowledgment.removeAttribute("hidden");
+      dom.phaseAcknowledgment.innerHTML = `
+        <label class="ack-box">
+          <input type="checkbox" id="stepAckCheckbox" ${acknowledged ? "checked" : ""}>
+          <span>Entendi a avaliação da ${step.title} neste momento.</span>
+        </label>
+      `;
+
+      const checkbox = dom.phaseAcknowledgment.querySelector("#stepAckCheckbox");
+      if (!checkbox) {
+        return;
+      }
+
+      checkbox.addEventListener("change", (event) => {
+        this.state.phaseAcknowledged[step.id] = event.target.checked;
+        this.clearGateMessage();
+        this.render();
+      });
     },
 
     async renderDiagnosisInteractive(questionsMarkdown) {
@@ -674,16 +738,10 @@
       dom.nextButton.disabled = this.state.currentStep === WIZARD_STEPS.length - 1;
 
       const currentStep = WIZARD_STEPS[this.state.currentStep];
-      if (currentStep.id === "fase-1") {
-        const done = this.state.completedSteps.has(this.state.currentStep);
-        const gateSatisfied = this.isPhaseOneGateSatisfied();
-        dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
-        dom.completeButton.disabled = done || !gateSatisfied;
-      } else {
-        const done = this.state.completedSteps.has(this.state.currentStep);
-        dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
-        dom.completeButton.disabled = done;
-      }
+      const done = this.state.completedSteps.has(this.state.currentStep);
+      const isReady = this.isCurrentStepCompletionReady();
+      dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
+      dom.completeButton.disabled = done || !isReady;
     },
 
     updateNavigationState() {
@@ -701,7 +759,10 @@
       }
 
       if (!this.canAccessStep(index)) {
-        this.showGateMessage("Conclua a Fase 1 (9 respostas + confirmação) para avançar para a próxima etapa.");
+        const missing = this.getMissingDependencies(index);
+        this.showGateMessage(
+          `Para acessar a Fase ${WIZARD_STEPS[index].order}, conclua: ${this.formatPhaseList(missing)}.`
+        );
         return;
       }
 
@@ -717,7 +778,10 @@
 
       const nextStepIndex = this.state.currentStep + 1;
       if (!this.canAccessStep(nextStepIndex)) {
-        this.showGateMessage("Conclua a Fase 1 (9 respostas + confirmação) antes de seguir para a Fase 2.");
+        const missing = this.getMissingDependencies(nextStepIndex);
+        this.showGateMessage(
+          `Para acessar a Fase ${WIZARD_STEPS[nextStepIndex].order}, conclua: ${this.formatPhaseList(missing)}.`
+        );
         return;
       }
 
@@ -737,8 +801,12 @@
 
     markCurrentStepCompleted() {
       const currentStep = WIZARD_STEPS[this.state.currentStep];
-      if (currentStep.id === "fase-1" && !this.isPhaseOneGateSatisfied()) {
-        this.showGateMessage("Responda as 9 perguntas e confirme o entendimento do diagnóstico para concluir a Fase 1.");
+      if (!this.isCurrentStepCompletionReady()) {
+        if (currentStep.id === "fase-1") {
+          this.showGateMessage("Responda as 9 perguntas e confirme o entendimento do diagnóstico para concluir a Fase 1.");
+          return;
+        }
+        this.showGateMessage(`Confirme o entendimento da Fase ${currentStep.order} para concluí-la.`);
         return;
       }
 
