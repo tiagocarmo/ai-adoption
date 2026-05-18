@@ -159,7 +159,7 @@
         if (!paragraphBuffer.length) {
           return;
         }
-        html.push(`<p>${paragraphBuffer.join("<br>")}</p>`);
+        html.push(`<p>${paragraphBuffer.join(" ")}</p>`);
         paragraphBuffer = [];
       };
 

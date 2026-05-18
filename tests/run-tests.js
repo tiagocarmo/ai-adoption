@@ -156,6 +156,14 @@ function testMarkdownParse() {
   assert(html.includes("<hr>"), "must parse hr");
 }
 
+function testMarkdownParagraphFlow() {
+  const html = markdownService.parseMarkdown(
+    "Linha longa quebrada no arquivo\ncontinua aqui sem parágrafo novo"
+  );
+  assert(!html.includes("<br>"), "must not inject automatic br for wrapped lines");
+  assert(html.includes("arquivo continua"), "must keep sentence flow with whitespace");
+}
+
 function testMarkdownTableParse() {
   const html = markdownService.parseMarkdown(
     "| Nível | Score |\n| --- | --- |\n| Baixo | < 1,67 |\n| Alto | >= 2,34 |"
@@ -333,6 +341,7 @@ async function testPhaseOneGateMessage() {
 async function run() {
   const tests = [
     testMarkdownParse,
+    testMarkdownParagraphFlow,
     testMarkdownTableParse,
     testMarkdownEscape,
     testExtractSectionsSemantic,

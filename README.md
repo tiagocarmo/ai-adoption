@@ -85,6 +85,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - blocos de citação (`>`)
   - separadores (`---`)
 - Sanitização de HTML antes da renderização para reduzir risco de injeção.
+- Footer global com assinatura do projeto, agradecimento e crédito de inspiração ao guia oficial da Tech Leads Club.
 
 ## Arquitetura
 
