@@ -48,23 +48,16 @@ Executar localmente o conteúdo publicado:
 npx serve public
 ```
 
-### Publicação manual
-
-Publicar no branch `gh-pages`:
-
-```bash
-npm run deploy
-```
-
 ### Publicação automática
 
 O workflow em `.github/workflows/deploy.yml` executa a cada push na branch `main`:
 
 1. `npm ci`
 2. `npm run build`
-3. `npm run deploy`
+3. `actions/upload-pages-artifact`
+4. `actions/deploy-pages`
 
-Esse fluxo publica apenas `public/` no GitHub Pages.
+Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de artifact/deploy.
 
 ## Funcionalidades implementadas
 

@@ -5,10 +5,7 @@
   "type": "module",
   "homepage": "https://tiagocarmo.github.io/ai-adoption",
   "scripts": {
-    "build": "rm -rf public && mkdir -p public && cp index.html style.css script.js public/ && cp -R content public/content",
-    "deploy": "gh-pages -d public"
+    "build": "rm -rf public && mkdir -p public && cp index.html style.css script.js public/ && cp -R content public/content"
   },
-  "devDependencies": {
-    "gh-pages": "^6.3.0"
-  }
+  "devDependencies": {}
 }
