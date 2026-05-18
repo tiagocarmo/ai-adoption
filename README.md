@@ -4,6 +4,8 @@ Framework de Adoção de IA. Usando como referência o modelo proposto pelo Tech
 
 Guia oficial: https://ai-adoption.techleads.club/framework/guia
 
+Um guia de 7 fases para times de engenharia que querem adotar IA de forma estruturada e sustentável — do diagnóstico organizacional à escala corporativa. Construído com base em experiência prática de desenvolvedores e líderes técnicos da comunidade Tech Leads Club. Este documento é autossuficiente: contém todas as perguntas, metodologias, conteúdos e critérios do framework para uso sem acesso ao app.
+
 ## Guia em 7 passos
 
 1. [01 - Diagnóstico Organizacional e de Engenharia](docs/01-diagnostico-organizacional-e-de-engenharia.md)
