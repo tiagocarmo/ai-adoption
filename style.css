@@ -720,4 +720,8 @@ p {
     grid-template-columns: minmax(0, 1fr) 330px;
     align-items: start;
   }
+
+  .diagnosis-layout.no-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }

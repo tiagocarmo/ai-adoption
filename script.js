@@ -629,7 +629,7 @@
           <div class="content-block">${markdownService.parseMarkdown(questionsMarkdown)}</div>
         </div>
 
-        <div class="diagnosis-layout">
+        <div class="diagnosis-layout${isComplete ? "" : " no-panel"}">
           <div class="diagnosis-questions">
             <p class="diagnosis-progress">Respondidas: <strong>${result.answeredCount}/${result.total}</strong></p>
             ${config.questions.map((question, index) => this.renderQuestionCard(question, answers[question.id], index + 1)).join("")}
