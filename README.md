@@ -7,6 +7,15 @@ Aplicação frontend em HTML, CSS e JavaScript puro para navegação guiada das 
 - URL oficial de deploy: `https://tiagocarmo.github.io/ai-adoption/`
 - Tempo médio de build: aproximadamente `1 minuto`
 
+## Workflow de entrega
+
+- Toda tarefa exige validação aplicável ao tipo de mudança antes da conclusão.
+- Para mudanças de código, usar o fluxo mínimo: `node tests/run-tests.js` + `npm run build` + cenário crítico E2E via Playwright MCP/CLI.
+- Após validação aprovada (sem erro crítico), seguir com `git add`, `git commit` e `git push` na branch atual.
+- Quando aplicável, usar `gh` para autenticação e fluxo de GitHub (como PR), mantendo o commit local no Git.
+- Mensagens de commit seguem o padrão Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/
+- Referência normativa de governança e validação: [AGENTS.md](AGENTS.md).
+
 ## Estrutura do projeto
 
 ```text

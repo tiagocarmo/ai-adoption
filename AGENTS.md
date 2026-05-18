@@ -12,11 +12,19 @@ O projeto deve ser desenvolvido como um site HTML no formato Wizard, com navega�
 
 Cada fase do framework deve ser implementada como uma página HTML separada, respeitando a estrutura de pastas e arquivos definida no [README.md](README.md).
 
+Toda tarefa exige algum tipo de validação aplicável ao tipo de mudança antes de ser considerada concluída.
+
 Após cada commit, é obrigatório executar a validação de cenário via Playwright MCP/CLI.
 
 A validação deve usar a URL adequada do ambiente: por padrão produção (`https://tiagocarmo.github.io/ai-adoption/`) e, quando aplicável, ambiente local correspondente para mudanças ainda não publicadas.
 
 Um commit só é considerado concluído após a validação do cenário crítico sem erro.
+
+Após validação aprovada (sem erro crítico), já pode seguir com `git add`, `git commit` e `git push` na branch atual, independentemente de qual seja.
+Quando necessário, usar `gh` para autenticação e operações de GitHub (ex.: PR), mantendo o commit local no Git.
+
+As mensagens de commit devem seguir obrigatoriamente o padrão Conventional Commits (`type(scope): description`):
+https://www.conventionalcommits.org/en/v1.0.0/
 
 Aprendizados de processo para validação:
 
