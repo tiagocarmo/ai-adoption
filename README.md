@@ -84,6 +84,11 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 
 ## Funcionalidades implementadas
 
+- Tela de boas-vindas obrigatória antes da Fase 1, com contexto do projeto e link oficial de inspiração:
+  `https://ai-adoption.techleads.club/framework/guia`.
+- Entrada com 2 ações:
+  - `Iniciar do zero` (limpa dados do projeto no `sessionStorage` com prefixo `ai-adoption-data-` e inicia na Fase 1).
+  - `Carregar JSON da Fase 7` (restaura e sobrescreve o estado completo das fases 1 a 7).
 - Wizard SPA com 7 etapas na ordem oficial.
 - Fase 1 com diagnóstico interativo (9 perguntas, score em tempo real e gargalo principal).
 - Fase 2 com experiência interativa completa de Time AI Enablers:
@@ -123,6 +128,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 - Marcação manual de conclusão por etapa.
 - Barra e anel de progresso.
 - Persistência no `sessionStorage` com chave `ai-adoption-data-wizard-state`.
+- Limpeza segura por prefixo `ai-adoption-data-` na ação de reinício (`Iniciar do zero`).
 - Persistência estendida para respostas, seleções e resultados da Fase 2 no mesmo estado serializado.
 - Persistência estendida para `phaseAnswers`, `phaseSelections`, `phaseResults` e `phaseReports` das fases interativas.
 - Restauração automática do estado ao recarregar.
@@ -239,6 +245,8 @@ Cobertura atual:
 ## Exportação do diagnóstico
 
 - O botão `Exportar JSON consolidado` fica no bloco final da **Fase 7**.
+- O JSON exportado pode ser carregado pela tela inicial via botão `Carregar JSON da Fase 7`.
+- Em importação inválida ou incompleta, o sistema bloqueia a carga, exibe erro e não altera o storage.
 - O arquivo gerado segue o padrão `ai-adoption-export-YYYY-MM-DDTHH-mm-ss.json`.
 - O conteúdo inclui:
   - `meta` da exportação;

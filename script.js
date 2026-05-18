@@ -1,5 +1,6 @@
 (() => {
   const STORAGE_KEY = "ai-adoption-data-wizard-state";
+  const STORAGE_PREFIX = "ai-adoption-data-";
   const DIAGNOSIS_CONFIG_FILE = "content/01-diagnostico-organizacional-e-de-engenharia.json";
   const PHASE_TWO_CONFIG_FILE = "content/02-time-ai-enablers.json";
   const PHASE_THREE_CONFIG_FILE = "content/03-definicao-do-time-piloto.json";
@@ -78,7 +79,35 @@
   let phaseSixConfigCache = null;
   let phaseSevenConfigCache = null;
 
+  const createInitialWizardState = () => ({
+    currentStep: 0,
+    completedSteps: new Set(),
+    phaseAnswers: {},
+    phaseSelections: {},
+    phaseResults: {},
+    phaseReports: {},
+    phaseAcknowledged: {}
+  });
+
   const storageService = {
+    normalizeStateCandidate(state) {
+      if (!state || typeof state !== "object" || Array.isArray(state)) {
+        return null;
+      }
+      if (typeof state.currentStep !== "number" || !Array.isArray(state.completedSteps)) {
+        return null;
+      }
+      return {
+        currentStep: Math.max(0, Math.min(WIZARD_STEPS.length - 1, state.currentStep)),
+        completedSteps: new Set(state.completedSteps.filter((value) => Number.isInteger(value))),
+        phaseAnswers: this.sanitizeStepMap(state.phaseAnswers),
+        phaseSelections: this.sanitizeStepMap(state.phaseSelections),
+        phaseResults: this.sanitizeStepMap(state.phaseResults),
+        phaseReports: this.sanitizeStepMap(state.phaseReports),
+        phaseAcknowledged: this.sanitizeBooleanStepMap(state.phaseAcknowledged)
+      };
+    },
+
     loadState() {
       try {
         const rawState = sessionStorage.getItem(STORAGE_KEY);
@@ -87,19 +116,7 @@
         }
 
         const state = JSON.parse(rawState);
-        if (typeof state.currentStep !== "number" || !Array.isArray(state.completedSteps)) {
-          return null;
-        }
-
-        return {
-          currentStep: Math.max(0, Math.min(WIZARD_STEPS.length - 1, state.currentStep)),
-          completedSteps: new Set(state.completedSteps.filter((value) => Number.isInteger(value))),
-          phaseAnswers: this.sanitizeStepMap(state.phaseAnswers),
-          phaseSelections: this.sanitizeStepMap(state.phaseSelections),
-          phaseResults: this.sanitizeStepMap(state.phaseResults),
-          phaseReports: this.sanitizeStepMap(state.phaseReports),
-          phaseAcknowledged: this.sanitizeBooleanStepMap(state.phaseAcknowledged)
-        };
+        return this.normalizeStateCandidate(state);
       } catch (error) {
         console.error("error loading wizard state", error);
         return null;
@@ -146,6 +163,18 @@
 
     clearState() {
       sessionStorage.removeItem(STORAGE_KEY);
+    },
+
+    clearProjectSessionData() {
+      const keysToRemove = [];
+      for (let index = 0; index < sessionStorage.length; index += 1) {
+        const key = sessionStorage.key(index);
+        if (typeof key === "string" && key.startsWith(STORAGE_PREFIX)) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((key) => sessionStorage.removeItem(key));
+      return keysToRemove;
     }
   };
 
@@ -1470,6 +1499,12 @@
   };
 
   const dom = {
+    welcomeScreen: document.querySelector("#welcomeScreen"),
+    wizardShell: document.querySelector("#wizardShell"),
+    welcomeMessage: document.querySelector("#welcomeMessage"),
+    startFromZeroButton: document.querySelector("#startFromZeroButton"),
+    loadJsonButton: document.querySelector("#loadJsonButton"),
+    loadJsonInput: document.querySelector("#loadJsonInput"),
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
     stepsNav: document.querySelector("#stepsNav"),
@@ -1499,28 +1534,21 @@
   };
 
   const wizardController = {
-    state: {
-      currentStep: 0,
-      completedSteps: new Set(),
-      phaseAnswers: {},
-      phaseSelections: {},
-      phaseResults: {},
-      phaseReports: {},
-      phaseAcknowledged: {}
-    },
+    state: createInitialWizardState(),
 
     async init() {
-      const restoredState = storageService.loadState();
-      if (restoredState) {
-        this.state = restoredState;
-      }
-
       this.renderNavigation();
       this.attachListeners();
-      await this.render();
+      this.showWelcomeScreen();
     },
 
     attachListeners() {
+      dom.startFromZeroButton.addEventListener("click", () => this.startFromZero());
+      dom.loadJsonButton.addEventListener("click", () => {
+        this.clearWelcomeMessage();
+        dom.loadJsonInput.click();
+      });
+      dom.loadJsonInput.addEventListener("change", (event) => this.handleJsonSelection(event));
       dom.backButton.addEventListener("click", () => this.goBack());
       dom.nextButton.addEventListener("click", () => this.goNext());
       dom.completeButton.addEventListener("click", () => this.markCurrentStepCompleted());
@@ -1529,6 +1557,95 @@
         dom.sidebarToggle.setAttribute("aria-expanded", String(!expanded));
         dom.stepsNav.classList.toggle("open", !expanded);
       });
+    },
+
+    showWelcomeMessage(message) {
+      dom.welcomeMessage.textContent = message;
+      dom.welcomeMessage.removeAttribute("hidden");
+    },
+
+    clearWelcomeMessage() {
+      dom.welcomeMessage.textContent = "";
+      dom.welcomeMessage.setAttribute("hidden", "hidden");
+    },
+
+    showWelcomeScreen() {
+      dom.welcomeScreen.removeAttribute("hidden");
+      dom.wizardShell.setAttribute("hidden", "hidden");
+      this.clearWelcomeMessage();
+    },
+
+    async startWizard() {
+      const restoredState = storageService.loadState();
+      this.state = restoredState || createInitialWizardState();
+      dom.welcomeScreen.setAttribute("hidden", "hidden");
+      dom.wizardShell.removeAttribute("hidden");
+      this.clearGateMessage();
+      await this.render();
+    },
+
+    async startFromZero() {
+      storageService.clearProjectSessionData();
+      this.state = createInitialWizardState();
+      storageService.saveState(this.state);
+      await this.startWizard();
+    },
+
+    validateImportedPayload(payload) {
+      if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+        return { valid: false, error: "JSON inválido: objeto raiz ausente." };
+      }
+      const wizardState = payload.wizardState;
+      if (!wizardState || typeof wizardState !== "object" || Array.isArray(wizardState)) {
+        return { valid: false, error: "JSON inválido: campo wizardState não encontrado." };
+      }
+
+      const requiredFields = [
+        "currentStep",
+        "completedSteps",
+        "phaseAnswers",
+        "phaseSelections",
+        "phaseResults",
+        "phaseReports",
+        "phaseAcknowledged"
+      ];
+      const missingFields = requiredFields.filter((field) => !(field in wizardState));
+      if (missingFields.length) {
+        return { valid: false, error: `JSON incompleto: faltam campos em wizardState (${missingFields.join(", ")}).` };
+      }
+
+      const normalized = storageService.normalizeStateCandidate(wizardState);
+      if (!normalized) {
+        return { valid: false, error: "JSON inválido: estrutura de wizardState incompatível." };
+      }
+      return { valid: true, state: normalized };
+    },
+
+    async handleJsonSelection(event) {
+      const [file] = event.target.files || [];
+      event.target.value = "";
+      if (!file) {
+        return;
+      }
+
+      this.clearWelcomeMessage();
+      try {
+        const text = await file.text();
+        const parsed = JSON.parse(text);
+        const validation = this.validateImportedPayload(parsed);
+        if (!validation.valid) {
+          this.showWelcomeMessage(validation.error);
+          return;
+        }
+
+        storageService.clearProjectSessionData();
+        storageService.saveState(validation.state);
+        this.state = validation.state;
+        await this.startWizard();
+      } catch (error) {
+        console.error("error importing json", error);
+        this.showWelcomeMessage("Não foi possível carregar o JSON. Verifique se o arquivo está válido.");
+      }
     },
 
     getStepDependencies(index) {

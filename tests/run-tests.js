@@ -42,6 +42,12 @@ function createElement() {
 }
 
 const elements = {
+  "#welcomeScreen": createElement(),
+  "#wizardShell": createElement(),
+  "#welcomeMessage": createElement(),
+  "#startFromZeroButton": createElement(),
+  "#loadJsonButton": createElement(),
+  "#loadJsonInput": createElement(),
   "#stepKicker": createElement(),
   "#stepTitle": createElement(),
   "#stepsNav": createElement(),
@@ -88,6 +94,12 @@ const context = {
   },
   sessionStorage: {
     data: {},
+    get length() {
+      return Object.keys(this.data).length;
+    },
+    key(index) {
+      return Object.keys(this.data)[index] || null;
+    },
     getItem(key) {
       return this.data[key] || null;
     },
@@ -422,6 +434,7 @@ vm.createContext(context);
 vm.runInContext(scriptContent, context);
 
 const {
+  storageService,
   markdownService,
   wizardController,
   WIZARD_STEPS,
@@ -434,6 +447,39 @@ const {
   phaseSevenService,
   exportService
 } = context.window.AIAdoptionWizard;
+
+function testStoragePrefixCleanup() {
+  context.sessionStorage.data = {
+    "ai-adoption-data-wizard-state": "{\"currentStep\":1}",
+    "ai-adoption-data-temp": "x",
+    unrelated: "keep"
+  };
+
+  const removed = storageService.clearProjectSessionData();
+  assert(removed.length === 2, "must remove only ai-adoption-data-* keys");
+  assert(context.sessionStorage.data.unrelated === "keep", "must preserve unrelated session keys");
+  assert(!("ai-adoption-data-temp" in context.sessionStorage.data), "must remove prefixed key");
+}
+
+function testImportPayloadValidation() {
+  const validPayload = {
+    wizardState: {
+      currentStep: 2,
+      completedSteps: [0, 1],
+      phaseAnswers: { "fase-1": { q1: "high" } },
+      phaseSelections: {},
+      phaseResults: {},
+      phaseReports: {},
+      phaseAcknowledged: { "fase-1": true }
+    }
+  };
+  const valid = wizardController.validateImportedPayload(validPayload);
+  assert(valid.valid, "must accept valid consolidated payload");
+  assert(valid.state.currentStep === 2, "must keep imported step");
+
+  const invalid = wizardController.validateImportedPayload({ wizardState: { currentStep: 1 } });
+  assert(!invalid.valid, "must reject incomplete wizardState");
+}
 
 function testMarkdownParse() {
   const html = markdownService.parseMarkdown(
@@ -1320,6 +1366,8 @@ async function testPhaseFiveGateMessage() {
 
 async function run() {
   const tests = [
+    testStoragePrefixCleanup,
+    testImportPayloadValidation,
     testMarkdownParse,
     testMarkdownParagraphFlow,
     testMarkdownTableParse,

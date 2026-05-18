@@ -11,7 +11,30 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="app-shell">
+  <section class="welcome-screen" id="welcomeScreen" aria-label="Boas-vindas ao AI Adoption Wizard">
+    <div class="welcome-card">
+      <p class="welcome-kicker">Framework AI Adoption</p>
+      <h1>Bem-vindo ao AI Adoption Wizard</h1>
+      <p class="welcome-description">
+        Este projeto organiza, em formato Wizard, as 7 fases do framework de adoção de IA para times de engenharia.
+        A experiência foi inspirada no guia oficial da Tech Leads Club para facilitar diagnóstico, planejamento e escala.
+      </p>
+      <p class="welcome-link-wrap">
+        Referência oficial:
+        <a href="https://ai-adoption.techleads.club/framework/guia" target="_blank" rel="noopener noreferrer">
+          https://ai-adoption.techleads.club/framework/guia
+        </a>
+      </p>
+      <p id="welcomeMessage" class="welcome-message" hidden></p>
+      <div class="welcome-actions">
+        <button type="button" class="btn btn-primary" id="startFromZeroButton">Iniciar do zero</button>
+        <button type="button" class="btn btn-secondary" id="loadJsonButton">Carregar JSON da Fase 7</button>
+        <input type="file" id="loadJsonInput" accept="application/json,.json" hidden>
+      </div>
+    </div>
+  </section>
+
+  <div class="app-shell" id="wizardShell" hidden>
     <aside class="sidebar" id="sidebar" aria-label="Etapas do framework">
       <div class="brand">
         <p class="brand-eyebrow">Framework</p>
