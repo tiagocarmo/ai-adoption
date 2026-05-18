@@ -33,7 +33,9 @@ Aplicação frontend em HTML, CSS e JavaScript puro para navegação guiada das 
 │   ├── 03-definicao-do-time-piloto.md
 │   ├── 03-definicao-do-time-piloto.json
 │   ├── 04-remocao-de-gargalos-organizacionais-e-tecnicos.md
+│   ├── 04-remocao-de-gargalos-organizacionais-e-tecnicos.json
 │   ├── 05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.md
+│   ├── 05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json
 │   ├── 06-governanca-e-padronizacao.md
 │   └── 07-escala-organizacional.md
 └── /tests
@@ -98,6 +100,12 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - priorização automática por score (`impacto`, `esforço`, `risco`);
   - classificação dos itens em `Crítico` e `Médio`;
   - geração automática de plano 30/90/180 por trilha com critério de conclusão.
+- Fase 5 com experiência interativa completa de Adoção Progressiva:
+  - baseline de maturidade para sinais críticos (`currentAiUsage`, `overallLevel`, `dxCode`, `seniority`, `quality`, `continuousDelivery`);
+  - seleção automática/manual de template (`conservador`, `balanceado`, `agressivo`);
+  - matriz dos 6 estágios do SDLC com nível, responsabilidade, anti-padrões e critérios de avanço;
+  - calibrações automáticas por risco operacional (ex.: limite em `deploy` quando `continuousDelivery` está baixo);
+  - artefato final serializado em `phaseReports[\"fase-5\"]`.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Marcação manual de conclusão por etapa.
@@ -110,6 +118,7 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 - Carregamento dinâmico de configuração JSON da Fase 2 em `/content/02-time-ai-enablers.json`.
 - Carregamento dinâmico de configuração JSON da Fase 3 em `/content/03-definicao-do-time-piloto.json`.
 - Carregamento dinâmico de configuração JSON da Fase 4 em `/content/04-remocao-de-gargalos-organizacionais-e-tecnicos.json`.
+- Carregamento dinâmico de configuração JSON da Fase 5 em `/content/05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json`.
 - Parser Markdown leve (sem bibliotecas externas) com suporte a:
   - headings (`#`, `##`, `###`)
   - listas (`-` e `*`)
@@ -159,6 +168,13 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - `sanitizeBacklog(items)`
   - `calculatePrioritization(config, items)`
   - `buildRoadmap(config, prioritizedItems)`
+- `phaseFiveService`
+  - `loadConfig()`
+  - `buildInitialPlan(config, upstreamData)`
+  - `resolveTemplate(config, signals, manualOverrides)`
+  - `applyCalibrations(config, plan, upstreamSignals)`
+  - `validatePlan(config, plan)`
+  - `buildPhaseFiveReport(config, plan)`
 
 ### Estratégia de extração semântica
 
@@ -188,6 +204,7 @@ Cobertura atual:
 - Cálculo de score combinado e gate da Fase 2.
 - Cálculo de score ponderado, relatório e gate da Fase 3.
 - Sanitização de backlog, score, roadmap e gate da Fase 4.
+- Seleção de template, calibrações, validação e gate da Fase 5.
 - Limites de navegação (`Voltar/Próximo`).
 - Marcação de etapa concluída.
 

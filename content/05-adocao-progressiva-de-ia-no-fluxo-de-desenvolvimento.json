@@ -1,0 +1,203 @@
+{
+  "baselineQuestions": [
+    {
+      "id": "currentAiUsage",
+      "label": "Nível atual de uso de IA no time",
+      "options": [
+        { "id": "none", "label": "Nenhum", "score": 1 },
+        { "id": "individual", "label": "Individual", "score": 2 },
+        { "id": "team", "label": "Time", "score": 3 },
+        { "id": "organization", "label": "Organização", "score": 4 }
+      ]
+    },
+    {
+      "id": "overallLevel",
+      "label": "Maturidade geral para adoção",
+      "options": [
+        { "id": "low", "label": "Baixa", "score": 1 },
+        { "id": "medium", "label": "Média", "score": 2 },
+        { "id": "high", "label": "Alta", "score": 3 }
+      ]
+    },
+    {
+      "id": "dxCode",
+      "label": "Developer experience e qualidade de código",
+      "options": [
+        { "id": "low", "label": "Baixa", "score": 1 },
+        { "id": "medium", "label": "Média", "score": 2 },
+        { "id": "high", "label": "Alta", "score": 3 }
+      ]
+    },
+    {
+      "id": "seniority",
+      "label": "Senioridade média da engenharia",
+      "options": [
+        { "id": "low", "label": "Baixa", "score": 1 },
+        { "id": "medium", "label": "Média", "score": 2 },
+        { "id": "high", "label": "Alta", "score": 3 }
+      ]
+    },
+    {
+      "id": "quality",
+      "label": "Maturidade de qualidade e testes",
+      "options": [
+        { "id": "low", "label": "Baixa", "score": 1 },
+        { "id": "medium", "label": "Média", "score": 2 },
+        { "id": "high", "label": "Alta", "score": 3 }
+      ]
+    },
+    {
+      "id": "continuousDelivery",
+      "label": "Maturidade de Continuous Delivery",
+      "options": [
+        { "id": "low", "label": "Baixa", "score": 1 },
+        { "id": "medium", "label": "Média", "score": 2 },
+        { "id": "high", "label": "Alta", "score": 3 }
+      ]
+    }
+  ],
+  "templates": [
+    {
+      "id": "conservador",
+      "label": "Conservador",
+      "description": "Começa pelos estágios de menor risco (testes e observabilidade). Prioriza qualidade sobre velocidade de adoção.",
+      "when": "currentAiUsage == 'none' OU overallLevel == 'low'",
+      "priorityOrder": ["testes", "observabilidade", "planejamento", "codificacao", "review", "deploy"],
+      "defaultLevels": {
+        "planejamento": "experimental",
+        "codificacao": "experimental",
+        "review": "none",
+        "testes": "team",
+        "deploy": "none",
+        "observabilidade": "experimental"
+      }
+    },
+    {
+      "id": "balanceado",
+      "label": "Balanceado",
+      "description": "Começa pela codificação. Avança em paralelo nos estágios de menor risco enquanto consolida os de maior impacto.",
+      "when": "Padrão",
+      "priorityOrder": ["codificacao", "review", "testes", "planejamento", "observabilidade", "deploy"],
+      "defaultLevels": {
+        "planejamento": "experimental",
+        "codificacao": "team",
+        "review": "experimental",
+        "testes": "experimental",
+        "deploy": "none",
+        "observabilidade": "experimental"
+      }
+    },
+    {
+      "id": "agressivo",
+      "label": "Agressivo",
+      "description": "Adoção simultânea em múltiplos estágios (código, review e deploy primeiro). Para times com alta maturidade.",
+      "when": "currentAiUsage == 'organization' OU overallLevel == 'high'",
+      "priorityOrder": ["codificacao", "review", "deploy", "testes", "planejamento", "observabilidade"],
+      "defaultLevels": {
+        "planejamento": "team",
+        "codificacao": "org",
+        "review": "team",
+        "testes": "team",
+        "deploy": "experimental",
+        "observabilidade": "team"
+      }
+    }
+  ],
+  "levels": [
+    { "id": "none", "label": "none" },
+    { "id": "experimental", "label": "experimental" },
+    { "id": "team", "label": "team" },
+    { "id": "org", "label": "org" }
+  ],
+  "responsibilityOptions": [
+    { "id": "ia", "label": "IA" },
+    { "id": "human", "label": "Human" },
+    { "id": "shared", "label": "Shared" }
+  ],
+  "stages": [
+    {
+      "id": "planejamento",
+      "label": "Planejamento",
+      "antiPatterns": [
+        "Usar IA para substituir conversas de alinhamento com produto.",
+        "Aceitar estimativas de IA sem validação com o time técnico.",
+        "Delegar decisões de priorização para a IA."
+      ],
+      "advancementCriteria": [
+        "Pelo menos 80% das tasks têm critérios de aceite gerados com IA revisados.",
+        "Time reporta redução subjetiva de esforço no planejamento.",
+        "Qualidade dos critérios de aceite melhorou (menos retrabalho por ambiguidade)."
+      ]
+    },
+    {
+      "id": "codificacao",
+      "label": "Codificação",
+      "antiPatterns": [
+        "Aceitar código gerado sem revisão crítica do contexto de negócio.",
+        "Usar IA para escrever código em áreas sem cobertura de testes.",
+        "Ignorar sugestões de segurança em favor de velocidade."
+      ],
+      "advancementCriteria": [
+        "Aumento mensurável de velocity (>= 10%) sem degradação de qualidade.",
+        "Time tem convenções documentadas para uso de IA no stack específico.",
+        "Taxa de bugs em código com IA igual ou inferior ao código manual."
+      ]
+    },
+    {
+      "id": "review",
+      "label": "Code Review",
+      "antiPatterns": [
+        "Substituir a revisão humana por revisão exclusiva de IA.",
+        "Ignorar comentários de IA sem lê-los por considerar ruído.",
+        "Usar IA para aprovar PRs sem entender o contexto de negócio."
+      ],
+      "advancementCriteria": [
+        "Redução de >= 20% no tempo médio de revisão de PRs.",
+        "Comentários de IA identificando pelo menos 1 bug por semana que seria perdido.",
+        "Revisores humanos relatam que IA melhora a qualidade da revisão."
+      ]
+    },
+    {
+      "id": "testes",
+      "label": "Testes & Shift Left",
+      "antiPatterns": [
+        "Aceitar testes gerados por IA sem revisar se testam o comportamento correto.",
+        "Usar testes de IA para inflar cobertura sem valor real.",
+        "Tratar Shift Left como iniciativa apenas de ferramental, não de cultura."
+      ],
+      "advancementCriteria": [
+        "Cobertura de testes aumentou >= 15% nos módulos onde IA foi usada.",
+        ">= 50% dos PRs chegam ao review já com testes gerados por IA.",
+        "Testes gerados por IA têm taxa de falso-positivo inferior a 10%."
+      ]
+    },
+    {
+      "id": "deploy",
+      "label": "Deploy",
+      "antiPatterns": [
+        "Usar IA para automatizar deploy sem revisão humana em deploys de alto risco.",
+        "Ignorar avisos de risco de IA por pressão de prazo.",
+        "Confiar em runbooks gerados por IA sem testar o rollback."
+      ],
+      "advancementCriteria": [
+        "Redução de >= 30% nos deploys que requerem rollback.",
+        "Análise de risco de IA usada em 100% dos deploys para produção.",
+        "Runbooks de rollback gerados e testados para os 5 principais serviços."
+      ]
+    },
+    {
+      "id": "observabilidade",
+      "label": "Observabilidade",
+      "antiPatterns": [
+        "Confiar em causa raiz sugerida por IA sem validação humana.",
+        "Ignorar anomalias detectadas por IA sem investigação.",
+        "Usar IA para reduzir alertas sem entender o porquê."
+      ],
+      "advancementCriteria": [
+        "MTTR reduzido em >= 25% com IA.",
+        "Pelo menos 3 incidentes detectados por IA antes de impacto ao usuário.",
+        "Time usa análise de causa raiz de IA como ponto de partida em 100% dos incidentes P1/P2."
+      ]
+    }
+  ]
+}

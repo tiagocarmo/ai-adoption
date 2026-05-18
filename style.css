@@ -590,6 +590,86 @@ p {
   padding-left: 18px;
 }
 
+.phase-five-shell {
+  display: grid;
+  gap: 16px;
+}
+
+.phase-five-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(32, 21, 21, 0.12);
+  background: #fff;
+  padding: 14px;
+  box-shadow: var(--shadow);
+}
+
+.phase-five-status {
+  margin-top: 8px;
+  color: var(--ink-soft);
+}
+
+.phase-five-baseline-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.phase-five-baseline-grid label,
+.phase-five-stage-grid label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: var(--body);
+}
+
+.phase-five-baseline-grid select,
+.phase-five-stage-grid select {
+  border: 1px solid rgba(32, 21, 21, 0.2);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  background: #fff;
+}
+
+.phase-five-template-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.phase-five-stage-list {
+  display: grid;
+  gap: 10px;
+}
+
+.phase-five-stage-card {
+  border: 1px solid rgba(32, 21, 21, 0.12);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  background: #fffefb;
+}
+
+.phase-five-stage-grid {
+  margin-top: 10px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.phase-five-checklist {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.phase-five-checklist label {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 14px;
+}
+
 .diagnosis-hero {
   padding: 18px;
   border-radius: var(--radius-lg);

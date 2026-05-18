@@ -4,6 +4,7 @@
   const PHASE_TWO_CONFIG_FILE = "content/02-time-ai-enablers.json";
   const PHASE_THREE_CONFIG_FILE = "content/03-definicao-do-time-piloto.json";
   const PHASE_FOUR_CONFIG_FILE = "content/04-remocao-de-gargalos-organizacionais-e-tecnicos.json";
+  const PHASE_FIVE_CONFIG_FILE = "content/05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json";
 
   const WIZARD_STEPS = [
     {
@@ -71,6 +72,7 @@
   let phaseTwoConfigCache = null;
   let phaseThreeConfigCache = null;
   let phaseFourConfigCache = null;
+  let phaseFiveConfigCache = null;
 
   const storageService = {
     loadState() {
@@ -892,6 +894,214 @@
     }
   };
 
+  const phaseFiveService = {
+    async loadConfig() {
+      if (phaseFiveConfigCache) {
+        return phaseFiveConfigCache;
+      }
+
+      const response = await fetch(PHASE_FIVE_CONFIG_FILE);
+      if (!response.ok) {
+        throw new Error(`failed to load phase five config: ${PHASE_FIVE_CONFIG_FILE}`);
+      }
+
+      const config = await response.json();
+      if (!Array.isArray(config.stages) || !Array.isArray(config.templates) || !Array.isArray(config.baselineQuestions)) {
+        throw new Error("invalid phase five config");
+      }
+
+      phaseFiveConfigCache = config;
+      return phaseFiveConfigCache;
+    },
+
+    inferSignalsFromUpstream(upstream = {}) {
+      const phaseOneBand = upstream.phaseOneBandId || "medium";
+      const phaseTwoBand = upstream.phaseTwoBandId || "medium";
+      const phaseThreeBand = upstream.phaseThreeBandId || "medium";
+      const phaseThreeBottleneck = upstream.phaseThreeBottleneckId || "";
+
+      const toLowMediumHigh = (band) => {
+        if (band === "low") {
+          return "low";
+        }
+        if (band === "high") {
+          return "high";
+        }
+        return "medium";
+      };
+
+      return {
+        currentAiUsage: phaseOneBand === "high" ? "organization" : phaseOneBand === "low" ? "none" : "team",
+        overallLevel: toLowMediumHigh(phaseThreeBand),
+        dxCode: phaseOneBand === "low" ? "low" : "medium",
+        seniority: phaseThreeBottleneck === "senioridade" ? "low" : toLowMediumHigh(phaseTwoBand),
+        quality: phaseThreeBottleneck === "qualidade" ? "low" : toLowMediumHigh(phaseOneBand),
+        continuousDelivery: phaseThreeBottleneck === "feedbackSpeed" ? "low" : toLowMediumHigh(phaseOneBand)
+      };
+    },
+
+    resolveTemplate(config, signals = {}, manualOverrides = {}) {
+      const currentAiUsage = manualOverrides.currentAiUsage || signals.currentAiUsage;
+      const overallLevel = manualOverrides.overallLevel || signals.overallLevel;
+
+      if (currentAiUsage === "none" || overallLevel === "low") {
+        return {
+          templateId: "conservador",
+          reason: "Uso atual de IA baixo ou maturidade geral baixa."
+        };
+      }
+      if (currentAiUsage === "organization" || overallLevel === "high") {
+        return {
+          templateId: "agressivo",
+          reason: "Uso atual de IA em escala ou maturidade geral alta."
+        };
+      }
+
+      return {
+        templateId: "balanceado",
+        reason: "Cenário intermediário com evolução controlada por impacto."
+      };
+    },
+
+    buildInitialPlan(config, upstreamData = {}) {
+      const inferredSignals = this.inferSignalsFromUpstream(upstreamData);
+      const templateResolution = this.resolveTemplate(config, inferredSignals, {});
+      const template = config.templates.find((item) => item.id === templateResolution.templateId) || config.templates[1];
+      const stagePlan = config.stages.map((stage) => ({
+        stageId: stage.id,
+        levelId: template.defaultLevels[stage.id] || "none",
+        responsibilityId: "shared",
+        selectedAntiPatterns: [],
+        selectedCriteria: []
+      }));
+
+      return {
+        signals: inferredSignals,
+        templateId: template.id,
+        templateReason: templateResolution.reason,
+        stagePlan
+      };
+    },
+
+    applyCalibrations(config, plan, upstreamSignals = {}) {
+      const levelRank = {
+        none: 0,
+        experimental: 1,
+        team: 2,
+        org: 3
+      };
+      const lowerLevel = (current, maxAllowed) => {
+        if (levelRank[current] <= levelRank[maxAllowed]) {
+          return current;
+        }
+        return maxAllowed;
+      };
+
+      const calibrated = plan.stagePlan.map((entry) => ({ ...entry }));
+      const warnings = [];
+
+      const codeEntry = calibrated.find((item) => item.stageId === "codificacao");
+      if (codeEntry && upstreamSignals.dxCode === "low") {
+        codeEntry.levelId = lowerLevel(codeEntry.levelId, "experimental");
+        warnings.push("Codificação limitada a experimental por DX/qualidade de código baixa.");
+      }
+
+      const reviewEntry = calibrated.find((item) => item.stageId === "review");
+      if (reviewEntry && upstreamSignals.seniority === "low") {
+        reviewEntry.levelId = lowerLevel(reviewEntry.levelId, "experimental");
+        warnings.push("Code Review limitado a experimental por baixa senioridade média.");
+      }
+
+      const testsEntry = calibrated.find((item) => item.stageId === "testes");
+      if (testsEntry && upstreamSignals.quality === "low") {
+        testsEntry.levelId = lowerLevel(testsEntry.levelId, "experimental");
+        warnings.push("Testes limitados a experimental por maturidade de qualidade baixa.");
+      }
+
+      const deployEntry = calibrated.find((item) => item.stageId === "deploy");
+      if (deployEntry && upstreamSignals.continuousDelivery === "low") {
+        deployEntry.levelId = "none";
+        warnings.push("Deploy mantido em none até evoluir Continuous Delivery.");
+      }
+
+      return {
+        ...plan,
+        stagePlan: calibrated,
+        warnings
+      };
+    },
+
+    validatePlan(config, plan = {}) {
+      const missing = [];
+      if (!plan.templateId) {
+        missing.push("Selecione um template de adoção.");
+      }
+      const planByStage = new Map((plan.stagePlan || []).map((item) => [item.stageId, item]));
+      const allowedLevels = new Set(config.levels.map((item) => item.id));
+      const allowedResponsibilities = new Set(config.responsibilityOptions.map((item) => item.id));
+
+      config.stages.forEach((stage) => {
+        const row = planByStage.get(stage.id);
+        if (!row) {
+          missing.push(`Estágio ${stage.label} não preenchido.`);
+          return;
+        }
+
+        if (!allowedLevels.has(row.levelId)) {
+          missing.push(`Selecione um nível válido em ${stage.label}.`);
+        }
+
+        if (!allowedResponsibilities.has(row.responsibilityId)) {
+          missing.push(`Selecione uma responsabilidade válida em ${stage.label}.`);
+        }
+
+        if (!Array.isArray(row.selectedCriteria) || row.selectedCriteria.length === 0) {
+          missing.push(`Selecione ao menos 1 critério de avanço em ${stage.label}.`);
+        }
+      });
+
+      return {
+        valid: missing.length === 0,
+        missing
+      };
+    },
+
+    buildPhaseFiveReport(config, plan) {
+      const stageMap = new Map(config.stages.map((stage) => [stage.id, stage]));
+      const levelsDistribution = (plan.stagePlan || []).reduce((acc, entry) => {
+        acc[entry.levelId] = (acc[entry.levelId] || 0) + 1;
+        return acc;
+      }, {});
+      const highRiskStages = (plan.stagePlan || [])
+        .filter((entry) => entry.levelId === "org" && entry.responsibilityId === "ia")
+        .map((entry) => stageMap.get(entry.stageId)?.label || entry.stageId);
+
+      const checklist = [
+        "Validar donos por estágio e ritual semanal de acompanhamento.",
+        "Garantir quality gates ativos antes de elevar estágio para team/org.",
+        "Revisar anti-padrões críticos a cada retro de adoção."
+      ];
+
+      return {
+        generatedAt: new Date().toISOString(),
+        templateId: plan.templateId,
+        templateReason: plan.templateReason,
+        levelsDistribution,
+        warnings: plan.warnings || [],
+        highRiskStages,
+        checklist,
+        stages: (plan.stagePlan || []).map((entry) => ({
+          stageId: entry.stageId,
+          stageLabel: stageMap.get(entry.stageId)?.label || entry.stageId,
+          levelId: entry.levelId,
+          responsibilityId: entry.responsibilityId,
+          selectedAntiPatterns: entry.selectedAntiPatterns || [],
+          selectedCriteria: entry.selectedCriteria || []
+        }))
+      };
+    }
+  };
+
   const dom = {
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
@@ -1025,6 +1235,9 @@
       if (currentStep.id === "fase-4") {
         return this.isPhaseFourGateSatisfied();
       }
+      if (currentStep.id === "fase-5") {
+        return this.isPhaseFiveGateSatisfied();
+      }
       return this.isStepAcknowledged(currentStep.id);
     },
 
@@ -1157,6 +1370,25 @@
       return parts.length ? parts.join(" | ") : "Conclua a Fase 4 para avançar.";
     },
 
+    isPhaseFiveGateSatisfied() {
+      const result = this.state.phaseResults["fase-5"];
+      const acknowledged = Boolean(this.state.phaseAcknowledged["fase-5"]);
+      return Boolean(result && result.valid && acknowledged);
+    },
+
+    async buildPhaseFiveGateMessage() {
+      const result = this.state.phaseResults["fase-5"] || {};
+      const parts = [];
+      if (!result.validation || !result.validation.valid) {
+        const pending = (result.validation?.missing || []).slice(0, 4);
+        parts.push(...pending);
+      }
+      if (!Boolean(this.state.phaseAcknowledged["fase-5"])) {
+        parts.push("Marque a confirmação de entendimento da Fase 5.");
+      }
+      return parts.length ? parts.join(" | ") : "Conclua a Fase 5 para avançar.";
+    },
+
     showGateMessage(message) {
       dom.gateMessage.textContent = message;
       dom.gateMessage.removeAttribute("hidden");
@@ -1178,6 +1410,7 @@
       const isPhaseTwo = step.id === "fase-2";
       const isPhaseThree = step.id === "fase-3";
       const isPhaseFour = step.id === "fase-4";
+      const isPhaseFive = step.id === "fase-5";
 
       if (isPhaseOne) {
         dom.summaryTitle.textContent = "Objetivo da fase";
@@ -1215,6 +1448,8 @@
           await this.renderPhaseThreeInteractive();
         } else if (isPhaseFour) {
           await this.renderPhaseFourInteractive();
+        } else if (isPhaseFive) {
+          await this.renderPhaseFiveInteractive();
         } else {
           dom.diagnosisInteractive.innerHTML = "";
           dom.diagnosisInteractive.setAttribute("hidden", "hidden");
@@ -1873,6 +2108,308 @@
       });
     },
 
+    getPhaseFiveUpstream() {
+      return {
+        phaseOneBandId: this.state.phaseResults["fase-1"]?.overallBand?.id,
+        phaseTwoBandId: this.state.phaseResults["fase-2"]?.overallBand?.id,
+        phaseThreeBandId: this.state.phaseResults["fase-3"]?.overallBand?.id,
+        phaseThreeBottleneckId: this.state.phaseResults["fase-3"]?.bottleneck?.dimensionId
+      };
+    },
+
+    ensurePhaseFiveState(config) {
+      const stepKey = "fase-5";
+      const current = this.state.phaseSelections[stepKey] || {};
+      if (Array.isArray(current.stagePlan) && current.stagePlan.length === config.stages.length && current.templateId) {
+        return;
+      }
+
+      const upstream = this.getPhaseFiveUpstream();
+      const base = phaseFiveService.buildInitialPlan(config, upstream);
+      const calibrated = phaseFiveService.applyCalibrations(config, base, base.signals);
+      this.state.phaseSelections[stepKey] = calibrated;
+    },
+
+    renderPhaseFiveStageRow(config, row) {
+      const stage = config.stages.find((item) => item.id === row.stageId);
+      const levelOptions = config.levels.map((level) => `
+        <option value="${this.escapeHtml(level.id)}" ${row.levelId === level.id ? "selected" : ""}>
+          ${this.escapeHtml(level.label)}
+        </option>
+      `).join("");
+      const responsibilityOptions = config.responsibilityOptions.map((item) => `
+        <option value="${this.escapeHtml(item.id)}" ${row.responsibilityId === item.id ? "selected" : ""}>
+          ${this.escapeHtml(item.label)}
+        </option>
+      `).join("");
+
+      return `
+        <article class="phase-five-stage-card">
+          <h5>${this.escapeHtml(stage?.label || row.stageId)}</h5>
+          <div class="phase-five-stage-grid">
+            <label>
+              <span>Nível</span>
+              <select data-phase-five-field="levelId" data-phase-five-stage-id="${this.escapeHtml(row.stageId)}">
+                ${levelOptions}
+              </select>
+            </label>
+            <label>
+              <span>Responsabilidade</span>
+              <select data-phase-five-field="responsibilityId" data-phase-five-stage-id="${this.escapeHtml(row.stageId)}">
+                ${responsibilityOptions}
+              </select>
+            </label>
+          </div>
+          <div class="phase-five-checklist">
+            <p><strong>Anti-padrões relevantes</strong></p>
+            ${stage.antiPatterns.map((item, index) => {
+              const key = `${row.stageId}-anti-${index}`;
+              const checked = row.selectedAntiPatterns.includes(index);
+              return `
+                <label>
+                  <input type="checkbox" data-phase-five-check="anti" data-phase-five-stage-id="${this.escapeHtml(row.stageId)}" data-phase-five-index="${index}" ${checked ? "checked" : ""}>
+                  <span>${this.escapeHtml(item)}</span>
+                </label>
+              `;
+            }).join("")}
+          </div>
+          <div class="phase-five-checklist">
+            <p><strong>Critérios de avanço (mínimo 1)</strong></p>
+            ${stage.advancementCriteria.map((item, index) => {
+              const checked = row.selectedCriteria.includes(index);
+              return `
+                <label>
+                  <input type="checkbox" data-phase-five-check="criteria" data-phase-five-stage-id="${this.escapeHtml(row.stageId)}" data-phase-five-index="${index}" ${checked ? "checked" : ""}>
+                  <span>${this.escapeHtml(item)}</span>
+                </label>
+              `;
+            }).join("")}
+          </div>
+        </article>
+      `;
+    },
+
+    async renderPhaseFiveInteractive() {
+      const config = await phaseFiveService.loadConfig();
+      const stepKey = "fase-5";
+      this.ensurePhaseFiveState(config);
+      const selection = this.state.phaseSelections[stepKey] || {};
+      const signals = selection.signals || {};
+      const validation = phaseFiveService.validatePlan(config, selection);
+      const report = phaseFiveService.buildPhaseFiveReport(config, selection);
+      const completeStages = report.stages.filter((item) => item.selectedCriteria.length > 0).length;
+
+      this.state.phaseResults[stepKey] = {
+        valid: validation.valid,
+        validation,
+        summary: {
+          templateId: selection.templateId,
+          completeStages
+        }
+      };
+      this.state.phaseReports[stepKey] = report;
+
+      const template = config.templates.find((item) => item.id === selection.templateId);
+
+      dom.diagnosisInteractive.removeAttribute("hidden");
+      dom.diagnosisInteractive.innerHTML = `
+        <div class="phase-five-shell">
+          <div class="diagnosis-hero">
+            <p class="diagnosis-tag">Adoção Progressiva</p>
+            <h3>Playbook dos 6 estágios do SDLC</h3>
+            <p class="phase-two-intro">
+              Defina template, calibragem e plano por estágio para conduzir a adoção de IA de forma progressiva,
+              com critérios claros de avanço.
+            </p>
+            <p class="phase-five-status">
+              Estágios com critérios definidos: <strong>${completeStages}/${config.stages.length}</strong>
+            </p>
+          </div>
+
+          <section class="phase-five-card">
+            <h4>1) Baseline da fase</h4>
+            <div class="phase-five-baseline-grid">
+              ${config.baselineQuestions.map((question) => `
+                <label>
+                  <span>${this.escapeHtml(question.label)}</span>
+                  <select data-phase-five-signal-id="${this.escapeHtml(question.id)}">
+                    ${question.options.map((option) => `
+                      <option value="${this.escapeHtml(option.id)}" ${signals[question.id] === option.id ? "selected" : ""}>
+                        ${this.escapeHtml(option.label)}
+                      </option>
+                    `).join("")}
+                  </select>
+                </label>
+              `).join("")}
+            </div>
+          </section>
+
+          <section class="phase-five-card">
+            <h4>2) Template de adoção recomendado</h4>
+            <p><strong>Template ativo:</strong> ${this.escapeHtml(template?.label || "N/A")}</p>
+            <p><strong>Motivo:</strong> ${this.escapeHtml(selection.templateReason || "N/A")}</p>
+            <div class="phase-five-template-grid">
+              ${config.templates.map((item) => `
+                <button type="button" class="phase-three-mode-btn${selection.templateId === item.id ? " selected" : ""}" data-phase-five-template-id="${this.escapeHtml(item.id)}">
+                  <strong>${this.escapeHtml(item.label)}</strong>
+                  <span>${this.escapeHtml(item.description)}</span>
+                </button>
+              `).join("")}
+            </div>
+          </section>
+
+          <section class="phase-five-card">
+            <h4>3) Matriz de adoção por estágio</h4>
+            <div class="phase-five-stage-list">
+              ${selection.stagePlan.map((row) => this.renderPhaseFiveStageRow(config, row)).join("")}
+            </div>
+          </section>
+
+          <aside class="phase-five-card">
+            <h4>4) Síntese executiva</h4>
+            <p><strong>Distribuição:</strong> none (${report.levelsDistribution.none || 0}) · experimental (${report.levelsDistribution.experimental || 0}) · team (${report.levelsDistribution.team || 0}) · org (${report.levelsDistribution.org || 0})</p>
+            <p><strong>Riscos detectados:</strong> ${report.highRiskStages.length ? this.escapeHtml(report.highRiskStages.join(", ")) : "Nenhum risco alto por automação total."}</p>
+            <div class="phase-five-checklist">
+              <p><strong>Checklist final</strong></p>
+              <ul>${report.checklist.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+            </div>
+            <div class="phase-five-checklist">
+              <p><strong>Calibrações aplicadas</strong></p>
+              ${
+                report.warnings.length
+                  ? `<ul>${report.warnings.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>`
+                  : "<p>Sem restrições adicionais aplicadas automaticamente.</p>"
+              }
+            </div>
+          </aside>
+        </div>
+      `;
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-five-signal-id]").forEach((input) => {
+        input.addEventListener("change", async (event) => {
+          const signalId = event.target.dataset.phaseFiveSignalId;
+          const current = this.state.phaseSelections[stepKey] || {};
+          const nextSignals = {
+            ...(current.signals || {}),
+            [signalId]: event.target.value
+          };
+          const resolved = phaseFiveService.resolveTemplate(config, nextSignals, {});
+          const template = config.templates.find((item) => item.id === resolved.templateId) || config.templates[1];
+          const recomputed = {
+            ...current,
+            signals: nextSignals,
+            templateId: template.id,
+            templateReason: resolved.reason,
+            stagePlan: config.stages.map((stage) => {
+              const existing = (current.stagePlan || []).find((row) => row.stageId === stage.id);
+              return {
+                stageId: stage.id,
+                levelId: template.defaultLevels[stage.id] || existing?.levelId || "none",
+                responsibilityId: existing?.responsibilityId || "shared",
+                selectedAntiPatterns: existing?.selectedAntiPatterns || [],
+                selectedCriteria: existing?.selectedCriteria || []
+              };
+            })
+          };
+          this.state.phaseSelections[stepKey] = phaseFiveService.applyCalibrations(config, recomputed, nextSignals);
+          this.clearGateMessage();
+          await this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-five-template-id]").forEach((button) => {
+        button.addEventListener("click", async (event) => {
+          const templateId = event.currentTarget.dataset.phaseFiveTemplateId;
+          const current = this.state.phaseSelections[stepKey] || {};
+          const templateMeta = config.templates.find((item) => item.id === templateId);
+          const recomputed = {
+            ...current,
+            templateId,
+            templateReason: "Template ajustado manualmente pelo usuário.",
+            stagePlan: config.stages.map((stage) => {
+              const existing = (current.stagePlan || []).find((row) => row.stageId === stage.id);
+              return {
+                stageId: stage.id,
+                levelId: existing?.levelId || templateMeta?.defaultLevels[stage.id] || "none",
+                responsibilityId: existing?.responsibilityId || "shared",
+                selectedAntiPatterns: existing?.selectedAntiPatterns || [],
+                selectedCriteria: existing?.selectedCriteria || []
+              };
+            })
+          };
+          this.state.phaseSelections[stepKey] = phaseFiveService.applyCalibrations(
+            config,
+            recomputed,
+            current.signals || {}
+          );
+          this.clearGateMessage();
+          await this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-five-field]").forEach((input) => {
+        input.addEventListener("change", async (event) => {
+          const stageId = event.target.dataset.phaseFiveStageId;
+          const field = event.target.dataset.phaseFiveField;
+          const current = this.state.phaseSelections[stepKey] || {};
+          const stagePlan = (current.stagePlan || []).map((row) => (
+            row.stageId === stageId ? { ...row, [field]: event.target.value } : row
+          ));
+          this.state.phaseSelections[stepKey] = {
+            ...current,
+            stagePlan
+          };
+          this.clearGateMessage();
+          await this.render();
+        });
+      });
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-five-check]").forEach((input) => {
+        input.addEventListener("change", async (event) => {
+          const stageId = event.target.dataset.phaseFiveStageId;
+          const checkType = event.target.dataset.phaseFiveCheck;
+          const index = Number(event.target.dataset.phaseFiveIndex);
+          const checked = event.target.checked;
+          const current = this.state.phaseSelections[stepKey] || {};
+          const stagePlan = (current.stagePlan || []).map((row) => {
+            if (row.stageId !== stageId) {
+              return row;
+            }
+
+            if (checkType === "anti") {
+              const set = new Set(row.selectedAntiPatterns || []);
+              if (checked) {
+                set.add(index);
+              } else {
+                set.delete(index);
+              }
+              return {
+                ...row,
+                selectedAntiPatterns: Array.from(set).sort((a, b) => a - b)
+              };
+            }
+
+            const set = new Set(row.selectedCriteria || []);
+            if (checked) {
+              set.add(index);
+            } else {
+              set.delete(index);
+            }
+            return {
+              ...row,
+              selectedCriteria: Array.from(set).sort((a, b) => a - b)
+            };
+          });
+          this.state.phaseSelections[stepKey] = {
+            ...current,
+            stagePlan
+          };
+          this.clearGateMessage();
+          await this.render();
+        });
+      });
+    },
+
     async renderPhaseThreeInteractive() {
       const config = await phaseThreeService.loadConfig();
       const stepKey = "fase-3";
@@ -2069,6 +2606,10 @@
           this.showGateMessage(await this.buildPhaseFourGateMessage());
           return;
         }
+        if (missing.includes(4)) {
+          this.showGateMessage(await this.buildPhaseFiveGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[index].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
@@ -2102,6 +2643,10 @@
         }
         if (missing.includes(3)) {
           this.showGateMessage(await this.buildPhaseFourGateMessage());
+          return;
+        }
+        if (missing.includes(4)) {
+          this.showGateMessage(await this.buildPhaseFiveGateMessage());
           return;
         }
         this.showGateMessage(
@@ -2145,6 +2690,10 @@
           this.showGateMessage(await this.buildPhaseFourGateMessage());
           return;
         }
+        if (currentStep.id === "fase-5") {
+          this.showGateMessage(await this.buildPhaseFiveGateMessage());
+          return;
+        }
         this.showGateMessage(`Confirme o entendimento da Fase ${currentStep.order} para concluí-la.`);
         return;
       }
@@ -2163,6 +2712,7 @@
     phaseTwoService,
     phaseThreeService,
     phaseFourService,
+    phaseFiveService,
     wizardController
   };
 

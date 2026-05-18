@@ -251,6 +251,37 @@ const context = {
       };
     }
 
+    if (path.endsWith("05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json")) {
+      return {
+        ok: true,
+        json: async () => ({
+          baselineQuestions: [
+            { id: "currentAiUsage", options: [{ id: "none" }, { id: "team" }, { id: "organization" }] },
+            { id: "overallLevel", options: [{ id: "low" }, { id: "medium" }, { id: "high" }] },
+            { id: "dxCode", options: [{ id: "low" }, { id: "medium" }, { id: "high" }] },
+            { id: "seniority", options: [{ id: "low" }, { id: "medium" }, { id: "high" }] },
+            { id: "quality", options: [{ id: "low" }, { id: "medium" }, { id: "high" }] },
+            { id: "continuousDelivery", options: [{ id: "low" }, { id: "medium" }, { id: "high" }] }
+          ],
+          templates: [
+            { id: "conservador", label: "Conservador", defaultLevels: { planejamento: "experimental", codificacao: "experimental", review: "none", testes: "team", deploy: "none", observabilidade: "experimental" } },
+            { id: "balanceado", label: "Balanceado", defaultLevels: { planejamento: "experimental", codificacao: "team", review: "experimental", testes: "experimental", deploy: "none", observabilidade: "experimental" } },
+            { id: "agressivo", label: "Agressivo", defaultLevels: { planejamento: "team", codificacao: "org", review: "team", testes: "team", deploy: "experimental", observabilidade: "team" } }
+          ],
+          levels: [{ id: "none" }, { id: "experimental" }, { id: "team" }, { id: "org" }],
+          responsibilityOptions: [{ id: "ia" }, { id: "human" }, { id: "shared" }],
+          stages: [
+            { id: "planejamento", label: "Planejamento", antiPatterns: ["a"], advancementCriteria: ["c1", "c2"] },
+            { id: "codificacao", label: "Codificação", antiPatterns: ["a"], advancementCriteria: ["c1", "c2"] },
+            { id: "review", label: "Code Review", antiPatterns: ["a"], advancementCriteria: ["c1", "c2"] },
+            { id: "testes", label: "Testes", antiPatterns: ["a"], advancementCriteria: ["c1", "c2"] },
+            { id: "deploy", label: "Deploy", antiPatterns: ["a"], advancementCriteria: ["c1", "c2"] },
+            { id: "observabilidade", label: "Observabilidade", antiPatterns: ["a"], advancementCriteria: ["c1", "c2"] }
+          ]
+        })
+      };
+    }
+
     if (path.endsWith(".json")) {
       return {
         ok: true,
@@ -309,7 +340,8 @@ const {
   diagnosisService,
   phaseTwoService,
   phaseThreeService,
-  phaseFourService
+  phaseFourService,
+  phaseFiveService
 } = context.window.AIAdoptionWizard;
 
 function testMarkdownParse() {
@@ -685,6 +717,92 @@ function testPhaseThreeScoreAndGate() {
   assert(!wizardController.isPhaseThreeGateSatisfied(), "phase 3 gate must fail without acknowledgment");
 }
 
+function testPhaseFiveTemplateAndCalibration() {
+  const config = {
+    templates: [
+      { id: "conservador", defaultLevels: { codificacao: "experimental", review: "none", testes: "team", deploy: "none", planejamento: "experimental", observabilidade: "experimental" } },
+      { id: "balanceado", defaultLevels: { codificacao: "team", review: "experimental", testes: "experimental", deploy: "none", planejamento: "experimental", observabilidade: "experimental" } },
+      { id: "agressivo", defaultLevels: { codificacao: "org", review: "team", testes: "team", deploy: "experimental", planejamento: "team", observabilidade: "team" } }
+    ],
+    stages: [
+      { id: "planejamento", label: "Planejamento", advancementCriteria: ["c1"] },
+      { id: "codificacao", label: "Codificação", advancementCriteria: ["c1"] },
+      { id: "review", label: "Code Review", advancementCriteria: ["c1"] },
+      { id: "testes", label: "Testes", advancementCriteria: ["c1"] },
+      { id: "deploy", label: "Deploy", advancementCriteria: ["c1"] },
+      { id: "observabilidade", label: "Observabilidade", advancementCriteria: ["c1"] }
+    ],
+    levels: [{ id: "none" }, { id: "experimental" }, { id: "team" }, { id: "org" }],
+    responsibilityOptions: [{ id: "ia" }, { id: "human" }, { id: "shared" }]
+  };
+
+  const resolved = phaseFiveService.resolveTemplate(config, {
+    currentAiUsage: "none",
+    overallLevel: "medium"
+  });
+  assert(resolved.templateId === "conservador", "phase 5 must resolve conservative template");
+
+  const base = phaseFiveService.buildInitialPlan(config, {
+    phaseOneBandId: "high",
+    phaseTwoBandId: "high",
+    phaseThreeBandId: "high",
+    phaseThreeBottleneckId: ""
+  });
+  const calibrated = phaseFiveService.applyCalibrations(config, base, {
+    ...base.signals,
+    dxCode: "low",
+    seniority: "low",
+    quality: "low",
+    continuousDelivery: "low"
+  });
+
+  const deploy = calibrated.stagePlan.find((item) => item.stageId === "deploy");
+  const code = calibrated.stagePlan.find((item) => item.stageId === "codificacao");
+  assert(deploy.levelId === "none", "phase 5 must force deploy none on low CD");
+  assert(code.levelId === "experimental", "phase 5 must cap coding to experimental on low DX");
+}
+
+function testPhaseFiveValidationAndGate() {
+  const config = {
+    stages: [
+      { id: "planejamento", label: "Planejamento" },
+      { id: "codificacao", label: "Codificação" },
+      { id: "review", label: "Code Review" },
+      { id: "testes", label: "Testes" },
+      { id: "deploy", label: "Deploy" },
+      { id: "observabilidade", label: "Observabilidade" }
+    ],
+    levels: [{ id: "none" }, { id: "experimental" }, { id: "team" }, { id: "org" }],
+    responsibilityOptions: [{ id: "ia" }, { id: "human" }, { id: "shared" }]
+  };
+  const incomplete = {
+    templateId: "balanceado",
+    stagePlan: config.stages.map((stage) => ({
+      stageId: stage.id,
+      levelId: "experimental",
+      responsibilityId: "shared",
+      selectedCriteria: [],
+      selectedAntiPatterns: []
+    }))
+  };
+  const invalid = phaseFiveService.validatePlan(config, incomplete);
+  assert(!invalid.valid, "phase 5 validation must fail without criteria");
+
+  const complete = {
+    ...incomplete,
+    stagePlan: incomplete.stagePlan.map((item) => ({ ...item, selectedCriteria: [0] }))
+  };
+  const valid = phaseFiveService.validatePlan(config, complete);
+  assert(valid.valid, "phase 5 validation must pass with criteria filled");
+
+  wizardController.state.phaseResults = { "fase-5": { valid: true, validation: { valid: true, missing: [] } } };
+  wizardController.state.phaseAcknowledged = { "fase-5": true };
+  assert(wizardController.isPhaseFiveGateSatisfied(), "phase 5 gate must pass with valid plan and ack");
+
+  wizardController.state.phaseAcknowledged = { "fase-5": false };
+  assert(!wizardController.isPhaseFiveGateSatisfied(), "phase 5 gate must fail without ack");
+}
+
 function testCanAccessStep() {
   wizardController.state.completedSteps = new Set();
   assert(wizardController.canAccessStep(0), "must allow current phase");
@@ -745,6 +863,13 @@ function testCurrentStepCompletionReadiness() {
 
   wizardController.state.phaseAcknowledged["fase-3"] = true;
   assert(wizardController.isCurrentStepCompletionReady(), "phase 3 should pass with full gate");
+
+  wizardController.state.currentStep = 4;
+  wizardController.state.phaseResults["fase-5"] = { valid: true, validation: { valid: true, missing: [] } };
+  wizardController.state.phaseAcknowledged["fase-5"] = false;
+  assert(!wizardController.isCurrentStepCompletionReady(), "phase 5 should require acknowledgment");
+  wizardController.state.phaseAcknowledged["fase-5"] = true;
+  assert(wizardController.isCurrentStepCompletionReady(), "phase 5 should pass with valid plan + ack");
 }
 
 function testQuestionTableRender() {
@@ -796,6 +921,22 @@ async function testPhaseOneGateMessage() {
   assert(message.includes("Marque a confirmação"), "must keep acknowledgment guidance");
 }
 
+async function testPhaseFiveGateMessage() {
+  wizardController.state.phaseResults = {
+    "fase-5": {
+      valid: false,
+      validation: {
+        valid: false,
+        missing: ["Selecione um template de adoção.", "Selecione ao menos 1 critério de avanço em Deploy."]
+      }
+    }
+  };
+  wizardController.state.phaseAcknowledged = { "fase-5": false };
+  const message = await wizardController.buildPhaseFiveGateMessage();
+  assert(message.includes("Selecione um template de adoção"), "phase 5 gate must describe template missing");
+  assert(message.includes("Marque a confirmação"), "phase 5 gate must require acknowledgment");
+}
+
 async function run() {
   const tests = [
     testMarkdownParse,
@@ -810,12 +951,15 @@ async function run() {
     testPhaseFourGate,
     testPhaseTwoScoreAndGate,
     testPhaseThreeScoreAndGate,
+    testPhaseFiveTemplateAndCalibration,
+    testPhaseFiveValidationAndGate,
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,
     testQuestionTableRender,
     testWizardBoundaries,
-    testPhaseOneGateMessage
+    testPhaseOneGateMessage,
+    testPhaseFiveGateMessage
   ];
 
   for (const testFn of tests) {
