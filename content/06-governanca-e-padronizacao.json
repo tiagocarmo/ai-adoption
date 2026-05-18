@@ -1,0 +1,106 @@
+{
+  "questions": [
+    {
+      "id": "orgSize",
+      "label": "Tamanho da engenharia",
+      "type": "single",
+      "required": true,
+      "options": [
+        { "id": "small", "label": "Pequena (1-20 engenheiros)", "score": 1 },
+        { "id": "medium", "label": "Média (21-80 engenheiros)", "score": 2 },
+        { "id": "large", "label": "Grande (81+ engenheiros)", "score": 3 }
+      ]
+    },
+    {
+      "id": "regulatoryExposure",
+      "label": "Exposição regulatória",
+      "type": "single",
+      "required": true,
+      "options": [
+        { "id": "low", "label": "Baixa", "score": 1 },
+        { "id": "medium", "label": "Média", "score": 2 },
+        { "id": "high", "label": "Alta", "score": 3 }
+      ]
+    },
+    {
+      "id": "riskTolerance",
+      "label": "Tolerância a risco para uso de IA",
+      "type": "single",
+      "required": true,
+      "options": [
+        { "id": "conservative", "label": "Conservadora", "score": 1 },
+        { "id": "balanced", "label": "Balanceada", "score": 2 },
+        { "id": "aggressive", "label": "Agressiva", "score": 3 }
+      ]
+    },
+    {
+      "id": "hasAgentic",
+      "label": "Já existe uso agentic (agentes com tool calls) em produção?",
+      "type": "single",
+      "required": true,
+      "options": [
+        { "id": "no", "label": "Não", "score": 1 },
+        { "id": "pilot", "label": "Piloto controlado", "score": 2 },
+        { "id": "yes", "label": "Sim, em escala", "score": 3 }
+      ]
+    },
+    {
+      "id": "approvedToolsCount",
+      "label": "Quantas ferramentas de IA já estão aprovadas?",
+      "type": "single",
+      "required": true,
+      "options": [
+        { "id": "0-1", "label": "0 a 1", "score": 1 },
+        { "id": "2-4", "label": "2 a 4", "score": 2 },
+        { "id": "5+", "label": "5 ou mais", "score": 3 }
+      ]
+    },
+    {
+      "id": "mcpServersCount",
+      "label": "Quantidade de servidores MCP em uso",
+      "type": "single",
+      "required": true,
+      "options": [
+        { "id": "none", "label": "Nenhum", "score": 1 },
+        { "id": "1-2", "label": "1 a 2", "score": 2 },
+        { "id": "3+", "label": "3 ou mais", "score": 3 }
+      ]
+    }
+  ],
+  "owners": {
+    "core": [
+      { "policy": "Uso de Dados em Prompts", "owner": "Security Engineering", "review": "Anual" },
+      { "policy": "Escolha e Aprovação de Ferramentas", "owner": "Time AI Enablers + Security", "review": "Semestral" },
+      { "policy": "Revisão Humana Obrigatória", "owner": "Tech Leads", "review": "Anual" },
+      { "policy": "Propriedade Intelectual", "owner": "Legal + CTO", "review": "Anual" },
+      { "policy": "Segurança e Vulnerabilidades", "owner": "Security Engineering", "review": "Semestral" },
+      { "policy": "Controle de Custos", "owner": "Engineering Manager + Finance", "review": "Trimestral" },
+      { "policy": "Exceções e Desvios", "owner": "Time AI Enablers", "review": "Semestral" },
+      { "policy": "Revisão Periódica das Políticas", "owner": "CTO + Time AI Enablers", "review": "Semestral" },
+      { "policy": "AI Literacy Requirement", "owner": "Time AI Enablers", "review": "Trimestral" }
+    ]
+  },
+  "technicalStandards": [
+    "Commits com Assistência de IA",
+    "Prompts Versionados",
+    "Observabilidade do Uso de IA",
+    "Rastreamento de Custos por Serviço",
+    "Revisão de Código Gerado por IA",
+    "Dados Sintéticos para Desenvolvimento",
+    "Shift Left Quality Gates"
+  ],
+  "guardrails": {
+    "critical": [
+      "Nenhum PII em Prompts",
+      "Nenhum Output de IA Raw em Produção"
+    ],
+    "high": [
+      "Privacy Mode Ativado em Ferramentas",
+      "Revisão de Licença de Dependências"
+    ],
+    "medium": [
+      "Isolamento de Ambiente para IA",
+      "Alertas de Anomalia de Uso"
+    ]
+  }
+}

@@ -5,6 +5,7 @@
   const PHASE_THREE_CONFIG_FILE = "content/03-definicao-do-time-piloto.json";
   const PHASE_FOUR_CONFIG_FILE = "content/04-remocao-de-gargalos-organizacionais-e-tecnicos.json";
   const PHASE_FIVE_CONFIG_FILE = "content/05-adocao-progressiva-de-ia-no-fluxo-de-desenvolvimento.json";
+  const PHASE_SIX_CONFIG_FILE = "content/06-governanca-e-padronizacao.json";
 
   const WIZARD_STEPS = [
     {
@@ -73,6 +74,7 @@
   let phaseThreeConfigCache = null;
   let phaseFourConfigCache = null;
   let phaseFiveConfigCache = null;
+  let phaseSixConfigCache = null;
 
   const storageService = {
     loadState() {
@@ -1102,6 +1104,106 @@
     }
   };
 
+  const phaseSixService = {
+    async loadConfig() {
+      if (phaseSixConfigCache) {
+        return phaseSixConfigCache;
+      }
+
+      const response = await fetch(PHASE_SIX_CONFIG_FILE);
+      if (!response.ok) {
+        throw new Error(`failed to load phase six config: ${PHASE_SIX_CONFIG_FILE}`);
+      }
+
+      const config = await response.json();
+      if (!Array.isArray(config.questions) || !config.owners || !config.guardrails) {
+        throw new Error("invalid phase six config");
+      }
+
+      phaseSixConfigCache = config;
+      return phaseSixConfigCache;
+    },
+
+    calculateProfile(config, answers = {}) {
+      const answered = config.questions.filter((question) => {
+        const value = answers[question.id];
+        return typeof value === "string" && value.length > 0;
+      });
+
+      const totalScore = answered.reduce((acc, question) => {
+        const selected = question.options.find((option) => option.id === answers[question.id]);
+        return acc + (selected ? Number(selected.score) : 0);
+      }, 0);
+
+      const average = answered.length ? totalScore / answered.length : 0;
+      const profileBand = average < 1.67 ? "conservative" : average < 2.34 ? "balanced" : "scalable";
+      return {
+        answeredCount: answered.length,
+        total: config.questions.length,
+        average,
+        profileBand
+      };
+    },
+
+    buildGovernancePack(config, answers = {}, profile) {
+      const orgSize = answers.orgSize || "small";
+      const hasAgentic = answers.hasAgentic || "no";
+      const mcpServersCount = answers.mcpServersCount || "none";
+
+      const teamModel = orgSize === "small"
+        ? "Time AI Enablers Lean (0,5-1 pessoa part-time) + liderança técnica local."
+        : orgSize === "medium"
+          ? "Time AI Enablers Dedicado (2-3 pessoas) + campeões por domínio."
+          : "Time central Distribuído (4-6 pessoas) + 1 campeão de IA por squad.";
+
+      const mandatoryControls = [
+        "Publicar as 9 políticas de uso de IA com owners e cadência de revisão.",
+        "Aplicar os 7 padrões técnicos no SDLC com checklist obrigatório por PR.",
+        "Definir trilha de exceções com justificativa, prazo de validade e revalidação semestral."
+      ];
+
+      if (hasAgentic !== "no") {
+        mandatoryControls.push(
+          "Ativar human-in-the-loop para ações irreversíveis (deploy prod, delete, comunicação externa)."
+        );
+      }
+
+      if (mcpServersCount !== "none") {
+        mandatoryControls.push("Aplicar os 6 controles mínimos de MCP Security antes de produção.");
+      }
+
+      const next30 = [
+        "Nomear owners por política e publicar versão v1 no repositório interno.",
+        "Criar checklist de revisão humana obrigatória para código com IA.",
+        "Ativar tagging de custo por squad/serviço e alertas de budget."
+      ];
+      const next60 = [
+        "Validar guardrails críticos em 100% das ferramentas aprovadas.",
+        "Instituir revisão quinzenal de exceções e incidentes relacionados a IA.",
+        "Padronizar prompts críticos versionados no fluxo de engenharia."
+      ];
+      const next90 = [
+        "Executar ciclo de revisão semestral simulado das políticas.",
+        "Publicar dashboard de governança (custos, uso, incidentes, compliance).",
+        "Fechar retro da fase com ajustes de política, padrão e guardrails."
+      ];
+
+      return {
+        teamModel,
+        profileBand: profile.profileBand,
+        owners: config.owners.core,
+        technicalStandards: config.technicalStandards,
+        guardrails: config.guardrails,
+        mandatoryControls,
+        roadmap: {
+          d30: next30,
+          d60: next60,
+          d90: next90
+        }
+      };
+    }
+  };
+
   const dom = {
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
@@ -1241,6 +1343,9 @@
       }
       if (currentStep.id === "fase-5") {
         return this.isPhaseFiveGateSatisfied();
+      }
+      if (currentStep.id === "fase-6") {
+        return this.isPhaseSixGateSatisfied();
       }
       return this.isStepAcknowledged(currentStep.id);
     },
@@ -1393,6 +1498,27 @@
       return parts.length ? parts.join(" | ") : "Conclua a Fase 5 para avançar.";
     },
 
+    isPhaseSixGateSatisfied() {
+      const result = this.state.phaseResults["fase-6"];
+      const acknowledged = Boolean(this.state.phaseAcknowledged["fase-6"]);
+      return Boolean(result && result.answeredCount === result.total && result.hasPack && acknowledged);
+    },
+
+    async buildPhaseSixGateMessage() {
+      const result = this.state.phaseResults["fase-6"] || {};
+      const parts = [];
+      if ((result.answeredCount || 0) < (result.total || 6)) {
+        parts.push(`Responda todas as perguntas da Fase 6 (${result.answeredCount || 0}/${result.total || 6}).`);
+      }
+      if (!result.hasPack) {
+        parts.push("Complete o preenchimento para gerar o pacote de governança.");
+      }
+      if (!Boolean(this.state.phaseAcknowledged["fase-6"])) {
+        parts.push("Marque a confirmação de entendimento da Fase 6.");
+      }
+      return parts.length ? parts.join(" | ") : "Conclua a Fase 6 para avançar.";
+    },
+
     showGateMessage(message) {
       dom.gateMessage.textContent = message;
       dom.gateMessage.removeAttribute("hidden");
@@ -1442,6 +1568,7 @@
       const isPhaseThree = step.id === "fase-3";
       const isPhaseFour = step.id === "fase-4";
       const isPhaseFive = step.id === "fase-5";
+      const isPhaseSix = step.id === "fase-6";
 
       if (isPhaseOne) {
         dom.summaryTitle.textContent = "Objetivo da fase";
@@ -1481,6 +1608,8 @@
           await this.renderPhaseFourInteractive();
         } else if (isPhaseFive) {
           await this.renderPhaseFiveInteractive();
+        } else if (isPhaseSix) {
+          await this.renderPhaseSixInteractive();
         } else {
           dom.diagnosisInteractive.innerHTML = "";
           dom.diagnosisInteractive.setAttribute("hidden", "hidden");
@@ -2441,6 +2570,139 @@
       });
     },
 
+    renderPhaseSixQuestion(question, value) {
+      return `
+        <article class="phase-six-question">
+          <h5>${this.escapeHtml(question.label)}</h5>
+          <div class="phase-six-options">
+            ${question.options.map((option) => `
+              <label class="phase-six-option${value === option.id ? " selected" : ""}">
+                <input
+                  type="radio"
+                  name="phase-six-${this.escapeHtml(question.id)}"
+                  data-phase-six-question-id="${this.escapeHtml(question.id)}"
+                  data-option-id="${this.escapeHtml(option.id)}"
+                  ${value === option.id ? "checked" : ""}
+                >
+                <span>${this.escapeHtml(option.label)}</span>
+              </label>
+            `).join("")}
+          </div>
+        </article>
+      `;
+    },
+
+    async renderPhaseSixInteractive() {
+      const config = await phaseSixService.loadConfig();
+      const stepKey = "fase-6";
+      const answers = this.state.phaseAnswers[stepKey] || {};
+      const profile = phaseSixService.calculateProfile(config, answers);
+      const hasAllAnswers = profile.answeredCount === profile.total;
+      const governancePack = hasAllAnswers ? phaseSixService.buildGovernancePack(config, answers, profile) : null;
+
+      this.state.phaseResults[stepKey] = {
+        ...profile,
+        hasPack: Boolean(governancePack)
+      };
+      this.state.phaseReports[stepKey] = governancePack;
+
+      dom.diagnosisInteractive.removeAttribute("hidden");
+      dom.diagnosisInteractive.innerHTML = `
+        <div class="phase-six-shell">
+          <div class="diagnosis-hero">
+            <p class="diagnosis-tag">Governança e Padronização</p>
+            <h3>Quem conduz, quais regras valem e como operar sem travar o time</h3>
+            <p class="phase-two-intro">
+              Preencha o contexto da sua organização para gerar um pacote de governança com time responsável,
+              políticas, padrões técnicos, guardrails e roadmap de implantação.
+            </p>
+            <p class="phase-five-status">
+              Perguntas respondidas: <strong>${profile.answeredCount}/${profile.total}</strong>
+            </p>
+          </div>
+
+          <section class="phase-five-card">
+            <h4>1) Contexto da organização</h4>
+            <div class="phase-six-question-grid">
+              ${config.questions.map((question) => this.renderPhaseSixQuestion(question, answers[question.id])).join("")}
+            </div>
+          </section>
+
+          <section class="phase-five-card${governancePack ? "" : " locked"}">
+            <h4>2) Pacote de governança gerado</h4>
+            ${
+              governancePack ? `
+                <p><strong>Modelo recomendado de condução:</strong> ${this.escapeHtml(governancePack.teamModel)}</p>
+                <p><strong>Perfil de governança:</strong> ${this.escapeHtml(governancePack.profileBand)}</p>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Owners das políticas (fonte oficial da Fase 6)</strong></p>
+                  <div class="table-wrap">
+                    <table>
+                      <thead>
+                        <tr><th>Política</th><th>Responsável</th><th>Revisão</th></tr>
+                      </thead>
+                      <tbody>
+                        ${governancePack.owners.map((item) => `
+                          <tr>
+                            <td>${this.escapeHtml(item.policy)}</td>
+                            <td>${this.escapeHtml(item.owner)}</td>
+                            <td>${this.escapeHtml(item.review)}</td>
+                          </tr>
+                        `).join("")}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Padrões técnicos obrigatórios</strong></p>
+                  <ul>${governancePack.technicalStandards.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Guardrails por criticidade</strong></p>
+                  <p><strong>Crítica:</strong> ${governancePack.guardrails.critical.map((item) => this.escapeHtml(item)).join(" · ")}</p>
+                  <p><strong>Alta:</strong> ${governancePack.guardrails.high.map((item) => this.escapeHtml(item)).join(" · ")}</p>
+                  <p><strong>Média:</strong> ${governancePack.guardrails.medium.map((item) => this.escapeHtml(item)).join(" · ")}</p>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Plano 30/60/90 dias</strong></p>
+                  <p><strong>30d</strong></p>
+                  <ul>${governancePack.roadmap.d30.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+                  <p><strong>60d</strong></p>
+                  <ul>${governancePack.roadmap.d60.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+                  <p><strong>90d</strong></p>
+                  <ul>${governancePack.roadmap.d90.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+                </div>
+
+                <div class="phase-five-checklist">
+                  <p><strong>Controles mandatórios imediatos</strong></p>
+                  <ul>${governancePack.mandatoryControls.map((item) => `<li>${this.escapeHtml(item)}</li>`).join("")}</ul>
+                </div>
+              `
+                : "<p>Responda as 6 perguntas de contexto para gerar o pacote completo desta fase.</p>"
+            }
+          </section>
+        </div>
+      `;
+
+      dom.diagnosisInteractive.querySelectorAll("[data-phase-six-question-id]").forEach((input) => {
+        input.addEventListener("change", async (event) => {
+          const questionId = event.target.dataset.phaseSixQuestionId;
+          const optionId = event.target.dataset.optionId;
+          const previous = this.state.phaseAnswers[stepKey] || {};
+          this.state.phaseAnswers[stepKey] = {
+            ...previous,
+            [questionId]: optionId
+          };
+          this.clearGateMessage();
+          await this.render();
+        });
+      });
+    },
+
     async renderPhaseThreeInteractive() {
       const config = await phaseThreeService.loadConfig();
       const stepKey = "fase-3";
@@ -2641,6 +2903,10 @@
           this.showGateMessage(await this.buildPhaseFiveGateMessage());
           return;
         }
+        if (missing.includes(5)) {
+          this.showGateMessage(await this.buildPhaseSixGateMessage());
+          return;
+        }
         this.showGateMessage(
           `Para acessar a Fase ${WIZARD_STEPS[index].order}, conclua: ${this.formatPhaseList(missing)}.`
         );
@@ -2679,6 +2945,10 @@
         }
         if (missing.includes(4)) {
           this.showGateMessage(await this.buildPhaseFiveGateMessage());
+          return;
+        }
+        if (missing.includes(5)) {
+          this.showGateMessage(await this.buildPhaseSixGateMessage());
           return;
         }
         this.showGateMessage(
@@ -2727,6 +2997,10 @@
           this.showGateMessage(await this.buildPhaseFiveGateMessage());
           return;
         }
+        if (currentStep.id === "fase-6") {
+          this.showGateMessage(await this.buildPhaseSixGateMessage());
+          return;
+        }
         this.showGateMessage(`Confirme o entendimento da Fase ${currentStep.order} para concluí-la.`);
         return;
       }
@@ -2746,6 +3020,7 @@
     phaseThreeService,
     phaseFourService,
     phaseFiveService,
+    phaseSixService,
     wizardController
   };
 

@@ -106,6 +106,11 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
   - matriz dos 6 estágios do SDLC com nível, responsabilidade, anti-padrões e critérios de avanço;
   - calibrações automáticas por risco operacional (ex.: limite em `deploy` quando `continuousDelivery` está baixo);
   - artefato final serializado em `phaseReports[\"fase-5\"]`.
+- Fase 6 com experiência interativa completa de Governança e Padronização:
+  - diagnóstico contextual com 6 perguntas (porte, risco, uso agentic, ferramental e MCP);
+  - recomendação de modelo de condução do Time AI Enablers por cenário;
+  - pacote com owners/cadência das 9 políticas, 7 padrões técnicos e guardrails por criticidade;
+  - plano de implantação 30/60/90 e controles mandatórios imediatos.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Navegação entre fases com scroll automático para o topo da página.

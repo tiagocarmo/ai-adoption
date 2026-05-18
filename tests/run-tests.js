@@ -350,7 +350,8 @@ const {
   phaseTwoService,
   phaseThreeService,
   phaseFourService,
-  phaseFiveService
+  phaseFiveService,
+  phaseSixService
 } = context.window.AIAdoptionWizard;
 
 function testMarkdownParse() {
@@ -812,6 +813,44 @@ function testPhaseFiveValidationAndGate() {
   assert(!wizardController.isPhaseFiveGateSatisfied(), "phase 5 gate must fail without ack");
 }
 
+function testPhaseSixGovernancePack() {
+  const config = {
+    questions: [
+      { id: "orgSize", options: [{ id: "small", score: 1 }, { id: "large", score: 3 }] },
+      { id: "hasAgentic", options: [{ id: "no", score: 1 }, { id: "yes", score: 3 }] },
+      { id: "mcpServersCount", options: [{ id: "none", score: 1 }, { id: "3+", score: 3 }] }
+    ],
+    owners: {
+      core: [{ policy: "Uso de Dados em Prompts", owner: "Security", review: "Anual" }]
+    },
+    technicalStandards: ["Prompts Versionados"],
+    guardrails: {
+      critical: ["Nenhum PII em Prompts"],
+      high: ["Privacy Mode"],
+      medium: ["Alertas de Anomalia de Uso"]
+    }
+  };
+
+  const profile = phaseSixService.calculateProfile(config, {
+    orgSize: "large",
+    hasAgentic: "yes",
+    mcpServersCount: "3+"
+  });
+  assert(profile.answeredCount === 3, "phase 6 must count answered questions");
+  assert(profile.profileBand === "scalable", "phase 6 must classify scalable profile");
+
+  const pack = phaseSixService.buildGovernancePack(
+    config,
+    { orgSize: "large", hasAgentic: "yes", mcpServersCount: "3+" },
+    profile
+  );
+  assert(pack.teamModel.includes("Distribuído"), "phase 6 should recommend distributed model for large org");
+  assert(
+    pack.mandatoryControls.some((item) => item.includes("MCP Security")),
+    "phase 6 should include MCP controls when servers exist"
+  );
+}
+
 function testCanAccessStep() {
   wizardController.state.completedSteps = new Set();
   assert(wizardController.canAccessStep(0), "must allow current phase");
@@ -993,6 +1032,7 @@ async function run() {
     testPhaseThreeScoreAndGate,
     testPhaseFiveTemplateAndCalibration,
     testPhaseFiveValidationAndGate,
+    testPhaseSixGovernancePack,
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,
