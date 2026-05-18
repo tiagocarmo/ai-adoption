@@ -63,22 +63,9 @@ técnico ao deploy — sem depender de aprovações externas ao squad?
 **Impacto na adoção de IA:** Times com baixa autonomia não conseguem incorporar IA no fluxo de trabalho
 porque cada mudança de processo exige aprovação de fora do squad.
 
-#### Baixo (1,0)
-
-Engenheiros dependem de múltiplas aprovações externas para a maioria das decisões técnicas. Funcionalidades
-passam por arquitetos centrais, comitês ou outras equipes antes de qualquer avanço. O ciclo de decisão é
-longo e previsível somente para quem está fora do squad.
-
-#### Médio (2,0)
-
-Engenheiros têm autonomia para a maioria das decisões técnicas rotineiras, mas ainda dependem de aprovação
-externa para mudanças de arquitetura, tecnologia ou impacto cross-squad. A exceção vira regra com alguma
-frequência.
-
-#### Alto (3,0)
-
-Engenheiros lideram funcionalidades de ponta a ponta com ownership técnico completo. Decisões de arquitetura,
-tecnologia e deploy são feitas dentro do squad. Coordenação com outros times é por convenção, não por aprovação.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| Engenheiros dependem de múltiplas aprovações externas para a maioria das decisões técnicas. Funcionalidades passam por arquitetos centrais, comitês ou outras equipes antes de qualquer avanço. O ciclo de decisão é longo e previsível somente para quem está fora do squad. | Engenheiros têm autonomia para a maioria das decisões técnicas rotineiras, mas ainda dependem de aprovação externa para mudanças de arquitetura, tecnologia ou impacto cross-squad. A exceção vira regra com alguma frequência. | Engenheiros lideram funcionalidades de ponta a ponta com ownership técnico completo. Decisões de arquitetura, tecnologia e deploy são feitas dentro do squad. Coordenação com outros times é por convenção, não por aprovação. |
 
 ### Questão 2 · Flexibilidade Organizacional
 
@@ -91,22 +78,9 @@ excessiva.
 **Impacto na adoção de IA:** Organizações com baixa flexibilidade levam meses para aprovar ferramentas de IA,
 perdendo janelas de adoção enquanto a tecnologia avança rapidamente.
 
-#### Baixo (1,0)
-
-Adoção de novas práticas ou ferramentas leva meses e exige múltiplos níveis de aprovação. O processo de avaliação
-é informal ou inexistente, resultando em decisões lentas e frequentemente bloqueadas por fatores políticos ou
-organizacionais.
-
-#### Médio (2,0)
-
-Existe um processo de avaliação de novas tecnologias, mas o ciclo médio leva de 4 a 8 semanas. Há critérios
-definidos, mas aprovações ainda passam por múltiplas camadas. Times conseguem fazer experimentos controlados,
-mas a adoção formal é lenta.
-
-#### Alto (3,0)
-
-Times conseguem iniciar experimentos formais em menos de 2 semanas. O processo de adoção é claro, rápido e com
-critérios objetivos. Decisões de tecnologia são descentralizadas e baseadas em evidências, não em hierarquia.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| Adoção de novas práticas ou ferramentas leva meses e exige múltiplos níveis de aprovação. O processo de avaliação é informal ou inexistente, resultando em decisões lentas e frequentemente bloqueadas por fatores políticos ou organizacionais. | Existe um processo de avaliação de novas tecnologias, mas o ciclo médio leva de 4 a 8 semanas. Há critérios definidos, mas aprovações ainda passam por múltiplas camadas. Times conseguem fazer experimentos controlados, mas a adoção formal é lenta. | Times conseguem iniciar experimentos formais em menos de 2 semanas. O processo de adoção é claro, rápido e com critérios objetivos. Decisões de tecnologia são descentralizadas e baseadas em evidências, não em hierarquia. |
 
 ### Questão 3 · Ownership e Accountability
 
@@ -119,21 +93,9 @@ e incidentes.
 **Impacto na adoção de IA:** Times sem ownership real de produção não têm incentivo para usar IA em observabilidade
 e detecção de problemas, pois não se sentem responsáveis pelo sistema em execução.
 
-#### Baixo (1,0)
-
-Incidentes são frequentemente escalados para equipes externas (SRE, ops, arquitetura) para resolução. O squad que
-desenvolveu não é o responsável primário pela operação. Análises de causa raiz são raras ou conduzidas por outra
-equipe.
-
-#### Médio (2,0)
-
-O squad é responsável pelo on-call mas ainda delega parte da resolução para equipes de suporte especializadas.
-Análises de causa raiz acontecem para incidentes maiores, mas ações preventivas têm acompanhamento inconsistente.
-
-#### Alto (3,0)
-
-O squad tem ownership completo do sistema em produção — detecta, resolve, analisa e age preventivamente. On-call
-é rotativo dentro do time. Cada incidente gera aprendizado documentado e melhorias rastreáveis.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| Incidentes são frequentemente escalados para equipes externas (SRE, ops, arquitetura) para resolução. O squad que desenvolveu não é o responsável primário pela operação. Análises de causa raiz são raras ou conduzidas por outra equipe. | O squad é responsável pelo on-call mas ainda delega parte da resolução para equipes de suporte especializadas. Análises de causa raiz acontecem para incidentes maiores, mas ações preventivas têm acompanhamento inconsistente. | O squad tem ownership completo do sistema em produção — detecta, resolve, analisa e age preventivamente. On-call é rotativo dentro do time. Cada incidente gera aprendizado documentado e melhorias rastreáveis. |
 
 ### Questão 4 · Maturidade de Continuous Delivery
 
@@ -144,23 +106,9 @@ O squad tem ownership completo do sistema em produção — detecta, resolve, an
 **Impacto na adoção de IA:** Pipelines manuais e deploys infrequentes tornam impossível usar IA em code review,
 análise de PR e sugestões de refatoração de forma integrada ao fluxo real de entrega.
 
-#### Baixo (1,0)
-
-Deploys acontecem mensalmente ou com menor frequência e envolvem processos manuais significativos. Cada deploy é
-um evento de alto risco que requer coordenação entre múltiplas equipes. O pipeline de CI existe mas não garante
-deploy automatizado.
-
-#### Médio (2,0)
-
-Deploys acontecem semanalmente com automação parcial. O pipeline de CI/CD cobre build e testes, mas o deploy para
-produção ainda tem etapas manuais ou janelas de manutenção. A frequência é limitada por processo, não por capacidade
-técnica.
-
-#### Alto (3,0)
-
-Deploys acontecem múltiplas vezes por semana ou diariamente, com pipeline totalmente automatizado do commit ao deploy.
-Feature flags separam deploy de release. O processo é previsível e reversível, com rollback automatizado quando
-necessário.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| Deploys acontecem mensalmente ou com menor frequência e envolvem processos manuais significativos. Cada deploy é um evento de alto risco que requer coordenação entre múltiplas equipes. O pipeline de CI existe mas não garante deploy automatizado. | Deploys acontecem semanalmente com automação parcial. O pipeline de CI/CD cobre build e testes, mas o deploy para produção ainda tem etapas manuais ou janelas de manutenção. A frequência é limitada por processo, não por capacidade técnica. | Deploys acontecem múltiplas vezes por semana ou diariamente, com pipeline totalmente automatizado do commit ao deploy. Feature flags separam deploy de release. O processo é previsível e reversível, com rollback automatizado quando necessário. |
 
 ### Questão 5 · Maturidade de Qualidade
 
@@ -172,23 +120,9 @@ qualidade do código em produção?
 **Impacto na adoção de IA:** Código sem cobertura de testes torna arriscada a adoção de IA para geração e refatoração
 de código, pois não há rede de segurança para validar o output da IA automaticamente.
 
-#### Baixo (1,0)
-
-Testes automatizados cobrem menos de 30% da base de código ou são inconsistentes entre módulos. Qualidade é
-responsabilidade de QA manual separado do time de desenvolvimento. Bugs em produção são frequentes e difíceis de
-rastrear.
-
-#### Médio (2,0)
-
-Há cobertura de testes automatizados para as principais funcionalidades, mas a cobertura é desigual e testes de
-integração são limitados. QA ainda tem papel separado, mas o time de engenharia assume mais responsabilidade pela
-qualidade do que antes.
-
-#### Alto (3,0)
-
-Cobertura de testes automatizados é alta e consistente. O próprio time de engenharia define e mantém a qualidade.
-Quality gates no pipeline bloqueiam código com cobertura insuficiente ou falha em testes. QA automatizado é parte
-integral do processo de desenvolvimento.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| Testes automatizados cobrem menos de 30% da base de código ou são inconsistentes entre módulos. Qualidade é responsabilidade de QA manual separado do time de desenvolvimento. Bugs em produção são frequentes e difíceis de rastrear. | Há cobertura de testes automatizados para as principais funcionalidades, mas a cobertura é desigual e testes de integração são limitados. QA ainda tem papel separado, mas o time de engenharia assume mais responsabilidade pela qualidade do que antes. | Cobertura de testes automatizados é alta e consistente. O próprio time de engenharia define e mantém a qualidade. Quality gates no pipeline bloqueiam código com cobertura insuficiente ou falha em testes. QA automatizado é parte integral do processo de desenvolvimento. |
 
 ### Questão 6 · Velocidade de Feedback
 
@@ -200,20 +134,9 @@ primeiro sinal de comportamento em produção?
 **Impacto na adoção de IA:** Ciclos de feedback longos limitam a eficácia de IA em code review e pair programming,
 pois o custo de validar sugestões da IA é alto quando o loop de feedback demora horas.
 
-#### Baixo (1,0)
-
-O pipeline de CI leva mais de 30 minutos para dar feedback. Monitoramento de produção é reativo — problemas são
-detectados por usuários antes de alertas internos. O ciclo completo de commit a sinal de produção leva horas ou dias.
-
-#### Médio (2,0)
-
-O pipeline de CI entrega feedback em 10 a 30 minutos. Há monitoramento básico de produção com alertas configurados
-para os principais erros. O tempo de detecção de problemas em produção é medido em horas.
-
-#### Alto (3,0)
-
-O pipeline de CI entrega feedback em menos de 10 minutos. Monitoramento de produção é proativo com detecção de
-anomalias antes de impacto ao usuário. O ciclo completo de commit a sinal de produção é medido em minutos.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| O pipeline de CI leva mais de 30 minutos para dar feedback. Monitoramento de produção é reativo — problemas são detectados por usuários antes de alertas internos. O ciclo completo de commit a sinal de produção leva horas ou dias. | O pipeline de CI entrega feedback em 10 a 30 minutos. Há monitoramento básico de produção com alertas configurados para os principais erros. O tempo de detecção de problemas em produção é medido em horas. | O pipeline de CI entrega feedback em menos de 10 minutos. Monitoramento de produção é proativo com detecção de anomalias antes de impacto ao usuário. O ciclo completo de commit a sinal de produção é medido em minutos. |
 
 ### Questão 7 · Developer Experience e Qualidade do Código
 
@@ -226,21 +149,9 @@ mudança, nível de débito técnico.
 **Impacto na adoção de IA:** Código com alto débito técnico e arquitetura acoplada limita o que IA consegue ajudar —
 sugestões de IA são ineficazes quando o contexto do código é fragmentado e difícil de entender mesmo para humanos.
 
-#### Baixo (1,0)
-
-A base de código tem alto débito técnico que torna mudanças arriscadas e lentas. Onboarding de novos engenheiros leva
-semanas devido à falta de documentação e à complexidade acidental. Ambiente de desenvolvimento local é instável e
-difícil de configurar.
-
-#### Médio (2,0)
-
-Há partes da base de código bem estruturadas e outras com débito técnico significativo. Onboarding é possível em
-alguns dias com acompanhamento. Ambiente de desenvolvimento funciona mas tem inconsistências entre membros do time.
-
-#### Alto (3,0)
-
-A arquitetura é clara, modular e documentada. Onboarding de novos engenheiros acontece em menos de 2 dias produtivos.
-Ambiente de desenvolvimento é reproduzível e consistente. Débito técnico é monitorado e priorizado sistematicamente.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| A base de código tem alto débito técnico que torna mudanças arriscadas e lentas. Onboarding de novos engenheiros leva semanas devido à falta de documentação e à complexidade acidental. Ambiente de desenvolvimento local é instável e difícil de configurar. | Há partes da base de código bem estruturadas e outras com débito técnico significativo. Onboarding é possível em alguns dias com acompanhamento. Ambiente de desenvolvimento funciona mas tem inconsistências entre membros do time. | A arquitetura é clara, modular e documentada. Onboarding de novos engenheiros acontece em menos de 2 dias produtivos. Ambiente de desenvolvimento é reproduzível e consistente. Débito técnico é monitorado e priorizado sistematicamente. |
 
 ### Questão 8 · Maturidade no Uso de IA
 
@@ -252,21 +163,9 @@ sugestões de código até automação de tarefas de engenharia?
 **Impacto na adoção de IA:** Dimensão de auto-referência: o nível atual de uso de IA revela a prontidão do time para
 aprofundar a adoção e o quanto a organização está preparada para extrair valor das próximas ondas de IA.
 
-#### Baixo (1,0)
-
-IA não é usada sistematicamente no fluxo de desenvolvimento. Alguns membros podem usar ferramentas individualmente, mas
-sem padronização, incentivo ou política organizacional. O time não tem visão clara do que IA pode oferecer para o
-desenvolvimento.
-
-#### Médio (2,0)
-
-Assistentes de código com IA são usados pela maioria do time, mas o uso está limitado a sugestões de código e
-completions. IA ainda não é usada sistematicamente para testes, revisão de código, documentação ou refatoração.
-
-#### Alto (3,0)
-
-IA está integrada em múltiplas etapas do fluxo de desenvolvimento — sugestão de código, revisão, geração de testes,
-documentação e análise de pull requests. O time mede o impacto do uso de IA e usa os dados para otimizar a adoção.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| IA não é usada sistematicamente no fluxo de desenvolvimento. Alguns membros podem usar ferramentas individualmente, mas sem padronização, incentivo ou política organizacional. O time não tem visão clara do que IA pode oferecer para o desenvolvimento. | Assistentes de código com IA são usados pela maioria do time, mas o uso está limitado a sugestões de código e completions. IA ainda não é usada sistematicamente para testes, revisão de código, documentação ou refatoração. | IA está integrada em múltiplas etapas do fluxo de desenvolvimento — sugestão de código, revisão, geração de testes, documentação e análise de pull requests. O time mede o impacto do uso de IA e usa os dados para otimizar a adoção. |
 
 ### Questão 9 · Senioridade da Engenharia
 
@@ -279,22 +178,9 @@ arquitetura.
 **Impacto na adoção de IA:** Times com baixa senioridade não conseguem avaliar criticamente o output da IA, resultando
 em adoção superficial ou em código gerado por IA que cria novos problemas não detectados.
 
-#### Baixo (1,0)
-
-Menos de 20% do time é composto por engenheiros sêniores ou staff. Decisões técnicas complexas frequentemente dependem
-de consultoria externa ao squad ou estão concentradas em 1–2 pessoas. O time tem dificuldade em operar autonomamente em
-problemas novos.
-
-#### Médio (2,0)
-
-Entre 20% e 40% do time são sêniores ou staff. Há capacidade técnica para a maioria das decisões rotineiras, mas
-problemas de arquitetura ou escala ainda requerem apoio externo frequente. O time está em transição para maior
-autonomia técnica.
-
-#### Alto (3,0)
-
-Mais de 40% do time são sêniores, staff ou principal. O time tem capacidade técnica para tomar decisões complexas de
-forma autônoma. Há engenheiros de referência que elevam o nível técnico coletivo e mentoram a progressão dos demais.
+| Baixo (1,0) | Médio (2,0) | Alto (3,0) |
+| --- | --- | --- |
+| Menos de 20% do time é composto por engenheiros sêniores ou staff. Decisões técnicas complexas frequentemente dependem de consultoria externa ao squad ou estão concentradas em 1–2 pessoas. O time tem dificuldade em operar autonomamente em problemas novos. | Entre 20% e 40% do time são sêniores ou staff. Há capacidade técnica para a maioria das decisões rotineiras, mas problemas de arquitetura ou escala ainda requerem apoio externo frequente. O time está em transição para maior autonomia técnica. | Mais de 40% do time são sêniores, staff ou principal. O time tem capacidade técnica para tomar decisões complexas de forma autônoma. Há engenheiros de referência que elevam o nível técnico coletivo e mentoram a progressão dos demais. |
 
 ## Recomendações por dimensão e nível
 

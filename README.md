@@ -11,7 +11,9 @@ Aplicação frontend em HTML, CSS e JavaScript puro para navegação guiada das 
 
 - Toda tarefa exige validação aplicável ao tipo de mudança antes da conclusão.
 - Para mudanças de código, usar o fluxo mínimo: `node tests/run-tests.js` + `npm run build` + cenário crítico E2E via Playwright MCP/CLI.
-- Após validação aprovada (sem erro crítico), seguir com `git add`, `git commit` e `git push` na branch atual.
+- Em qualquer tarefa com modificação de arquivos do repositório, após validação aprovada (sem erro crítico), é obrigatório
+  seguir com `git add`, `git commit` e `git push` na branch atual.
+- A tarefa só é considerada concluída após o push com sucesso.
 - Quando aplicável, usar `gh` para autenticação e fluxo de GitHub (como PR), mantendo o commit local no Git.
 - Mensagens de commit seguem o padrão Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/
 - Referência normativa de governança e validação: [AGENTS.md](AGENTS.md).
@@ -175,4 +177,5 @@ A interface, navegação e progresso serão atualizados automaticamente com base
 
 - As 7 etapas foram mantidas na mesma ordem lógica do guia oficial.
 - Os arquivos em `/content` são a fonte oficial do conteúdo do framework neste projeto.
+- Na Fase 1, os níveis `Baixo (1,0)`, `Médio (2,0)` e `Alto (3,0)` de cada questão foram organizados em tabela Markdown de 3 colunas.
 - A aplicação não altera o conteúdo estratégico, apenas organiza sua leitura em experiência guiada.

@@ -20,7 +20,9 @@ A validação deve usar a URL adequada do ambiente: por padrão produção (`htt
 
 Um commit só é considerado concluído após a validação do cenário crítico sem erro.
 
-Após validação aprovada (sem erro crítico), já pode seguir com `git add`, `git commit` e `git push` na branch atual, independentemente de qual seja.
+Em qualquer tarefa com modificação de arquivos do repositório, após validação aprovada (sem erro crítico),
+é obrigatório finalizar com `git add`, `git commit` e `git push` na branch atual, independentemente de qual seja.
+A tarefa só é considerada concluída depois que o push for realizado com sucesso.
 Quando necessário, usar `gh` para autenticação e operações de GitHub (ex.: PR), mantendo o commit local no Git.
 
 As mensagens de commit devem seguir obrigatoriamente o padrão Conventional Commits (`type(scope): description`):
