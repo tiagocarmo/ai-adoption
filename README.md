@@ -2,6 +2,11 @@
 
 Aplicação frontend em HTML, CSS e JavaScript puro para navegação guiada das 7 fases do framework AI Adoption.
 
+## Operação
+
+- URL oficial de deploy: `https://tiagocarmo.github.io/ai-adoption/`
+- Tempo médio de build: aproximadamente `1 minuto`
+
 ## Estrutura do projeto
 
 ```text
