@@ -693,25 +693,41 @@
           <p class="question-text">${question.prompt}</p>
           <p class="question-impact"><strong>Impacto:</strong> ${question.impact}</p>
 
-          <div class="options-grid">
-            ${question.options.map((option) => {
-              const checked = selectedOptionId === option.id;
-              return `
-                <label class="option-card ${checked ? "selected" : ""}">
-                  <input
-                    type="radio"
-                    name="${question.id}"
-                    value="${option.id}"
-                    data-question-id="${question.id}"
-                    data-option-id="${option.id}"
-                    ${checked ? "checked" : ""}
-                  >
-                  <span class="option-label">${option.label}</span>
-                  <span class="option-score">${Number(option.score).toFixed(1)}</span>
-                  <span class="option-desc">${option.description}</span>
-                </label>
-              `;
-            }).join("")}
+          <div class="diagnosis-option-table-wrap">
+            <table class="diagnosis-option-table">
+              <thead>
+                <tr>
+                  ${question.options.map((option) => `
+                    <th>
+                      <span class="option-label">${option.label}</span>
+                      <span class="option-score">${Number(option.score).toFixed(1).replace(".", ",")}</span>
+                    </th>
+                  `).join("")}
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  ${question.options.map((option) => {
+                    const checked = selectedOptionId === option.id;
+                    return `
+                      <td class="${checked ? "selected" : ""}">
+                        <label class="option-cell ${checked ? "selected" : ""}">
+                          <input
+                            type="radio"
+                            name="${question.id}"
+                            value="${option.id}"
+                            data-question-id="${question.id}"
+                            data-option-id="${option.id}"
+                            ${checked ? "checked" : ""}
+                          >
+                          <span class="option-desc">${option.description}</span>
+                        </label>
+                      </td>
+                    `;
+                  }).join("")}
+                </tr>
+              </tbody>
+            </table>
           </div>
         </article>
       `;

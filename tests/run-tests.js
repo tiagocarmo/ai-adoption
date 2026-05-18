@@ -311,6 +311,28 @@ function testCurrentStepCompletionReadiness() {
   assert(wizardController.isCurrentStepCompletionReady(), "phase 2 should pass with acknowledgment");
 }
 
+function testQuestionTableRender() {
+  const question = {
+    id: "qx",
+    block: "A",
+    title: "Pergunta X",
+    prompt: "Prompt X",
+    impact: "Impact X",
+    options: [
+      { id: "low", label: "Baixo", score: 1, description: "Desc low" },
+      { id: "medium", label: "Médio", score: 2, description: "Desc medium" },
+      { id: "high", label: "Alto", score: 3, description: "Desc high" }
+    ]
+  };
+
+  const html = wizardController.renderQuestionCard(question, "medium", 1);
+  assert(html.includes("diagnosis-option-table"), "must render table class");
+  assert(html.includes("<thead>"), "must render table head");
+  assert(html.includes("<tbody>"), "must render table body");
+  assert((html.match(/type=\"radio\"/g) || []).length === 3, "must render 3 radio inputs");
+  assert(html.includes("td class=\"selected\""), "must mark selected column");
+}
+
 function testWizardBoundaries() {
   wizardController.state.currentStep = 0;
   wizardController.goBack();
@@ -350,6 +372,7 @@ async function run() {
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,
+    testQuestionTableRender,
     testWizardBoundaries,
     testPhaseOneGateMessage
   ];
