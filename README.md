@@ -87,8 +87,8 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 - Tela de boas-vindas obrigatória antes da Fase 1, com contexto do projeto e link oficial de inspiração:
   `https://ai-adoption.techleads.club/framework/guia`.
 - Entrada com 2 ações:
-  - `Iniciar` (limpa dados do projeto no `sessionStorage` com prefixo `ai-adoption-data-` e inicia na Fase 1).
-  - `Carregar JSON` (restaura e sobrescreve o estado completo das fases 1 a 7).
+  - `Iniciar` (limpa dados do projeto no `localStorage` com prefixo `ai-adoption-data-` e inicia na Fase 1).
+  - `Carregar JSON` (importa histórico parcial ou completo e retoma na próxima fase pendente).
 - Wizard SPA com 7 etapas na ordem oficial.
 - Fase 1 com diagnóstico interativo (9 perguntas, score em tempo real e gargalo principal).
 - Fase 2 com experiência interativa completa de Time AI Enablers:
@@ -121,13 +121,16 @@ Esse fluxo publica apenas `public/` no GitHub Pages via mecanismo oficial de art
 - Fase 7 com experiência interativa completa de Escala Organizacional:
   - questionário de contexto para escala;
   - plano gerado com ondas, catálogo de 11 métricas, 8 riscos, cerimônias e critérios de conclusão;
-  - exportação de JSON consolidado com todos os dados preenchidos e artefatos gerados.
+  - continuidade por snapshot acumulado com todos os dados preenchidos e artefatos gerados até a fase atual.
 - Sidebar/timeline com seleção direta, etapa atual e etapas concluídas.
 - Navegação por botões `Voltar` e `Próximo`.
 - Navegação entre fases com scroll automático para o topo da página.
 - Marcação manual de conclusão por etapa.
+- Importação de JSON sempre visível no topo do wizard.
+- Exportação acumulada da fase atual e anteriores no rodapé do wizard.
+- `Próximo` liberado apenas quando a fase atual estiver pronta e com confirmação de entendimento.
 - Barra e anel de progresso.
-- Persistência no `sessionStorage` com chave `ai-adoption-data-wizard-state`.
+- Persistência no `localStorage` com chave `ai-adoption-data-wizard-state`.
 - Limpeza segura por prefixo `ai-adoption-data-` na ação de reinício (`Iniciar`).
 - Persistência estendida para respostas, seleções e resultados da Fase 2 no mesmo estado serializado.
 - Persistência estendida para `phaseAnswers`, `phaseSelections`, `phaseResults` e `phaseReports` das fases interativas.
@@ -238,21 +241,23 @@ Cobertura atual:
 - Sanitização de backlog, score, roadmap e gate da Fase 4.
 - Seleção de template, calibrações, validação e gate da Fase 5.
 - Perfil, pacote e gate da Fase 6.
-- Plano de escala, gate e exportação consolidada da Fase 7.
+- Plano de escala, gate e exportação acumulada por fase.
 - Limites de navegação (`Voltar/Próximo`).
 - Marcação de etapa concluída.
 
-## Exportação do diagnóstico
+## Importação e exportação do diagnóstico
 
-- O botão `Exportar JSON consolidado` fica no bloco final da **Fase 7**.
-- O JSON exportado pode ser carregado pela tela inicial via botão `Carregar JSON`.
-- Em importação inválida ou incompleta, o sistema bloqueia a carga, exibe erro e não altera o storage.
-- O arquivo gerado segue o padrão `ai-adoption-export-YYYY-MM-DDTHH-mm-ss.json`.
+- O botão `Importar JSON` fica sempre visível no topo do wizard.
+- O botão `Exportar etapa` fica no rodapé e exporta a fase atual junto com todas as anteriores.
+- O JSON exportado pode ser carregado na tela inicial ou durante a navegação.
+- Após uma importação bem-sucedida, o wizard retoma automaticamente na próxima fase pendente.
+- Em importação inválida, o sistema bloqueia a carga, exibe erro e preserva o histórico já salvo.
+- O arquivo gerado segue o padrão `ai-adoption-export-fase-X-YYYY-MM-DDTHH-mm-ss.json`.
 - O conteúdo inclui:
-  - `meta` da exportação;
-  - `wizardState` completo;
-  - `phases[]` com perguntas, respostas, preenchimentos, resultados e relatórios;
-  - `sourceConfigs` com os JSONs-base carregados por fase.
+  - `meta` da exportação com `exportType`, `maxCompletedStep` e `currentStepAtExport`;
+  - `wizardState` acumulado até a fase exportada;
+  - `phases[]` com perguntas, respostas, preenchimentos, resultados e relatórios até a fase exportada;
+  - `sourceConfigs` com os JSONs-base das fases incluídas no snapshot.
 - A documentação de leitura está em [`interpretacao-json.md`](interpretacao-json.md).
 
 Validação E2E com Playwright CLI (cenário da Fase 1):

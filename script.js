@@ -90,16 +90,46 @@
   });
 
   const storageService = {
-    normalizeStateCandidate(state) {
+    getProjectStorages() {
+      const storages = [];
+      if (typeof localStorage !== "undefined") {
+        storages.push(localStorage);
+      }
+      if (typeof sessionStorage !== "undefined" && sessionStorage !== localStorage) {
+        storages.push(sessionStorage);
+      }
+      return storages;
+    },
+
+    getPrimaryStorage() {
+      return this.getProjectStorages()[0] || null;
+    },
+
+    sanitizeCompletedSteps(value) {
+      if (!Array.isArray(value)) {
+        return new Set();
+      }
+      return new Set(
+        value
+          .filter((item) => Number.isInteger(item))
+          .map((item) => Math.max(0, Math.min(WIZARD_STEPS.length - 1, item)))
+      );
+    },
+
+    normalizeStateCandidate(state, options = {}) {
+      const { allowPartial = false } = options;
       if (!state || typeof state !== "object" || Array.isArray(state)) {
         return null;
       }
-      if (typeof state.currentStep !== "number" || !Array.isArray(state.completedSteps)) {
+      if (!allowPartial && (typeof state.currentStep !== "number" || !Array.isArray(state.completedSteps))) {
         return null;
       }
+
+      const hasCurrentStep = typeof state.currentStep === "number";
+      const hasCompletedSteps = Array.isArray(state.completedSteps);
       return {
-        currentStep: Math.max(0, Math.min(WIZARD_STEPS.length - 1, state.currentStep)),
-        completedSteps: new Set(state.completedSteps.filter((value) => Number.isInteger(value))),
+        currentStep: hasCurrentStep ? Math.max(0, Math.min(WIZARD_STEPS.length - 1, state.currentStep)) : 0,
+        completedSteps: hasCompletedSteps ? this.sanitizeCompletedSteps(state.completedSteps) : new Set(),
         phaseAnswers: this.sanitizeStepMap(state.phaseAnswers),
         phaseSelections: this.sanitizeStepMap(state.phaseSelections),
         phaseResults: this.sanitizeStepMap(state.phaseResults),
@@ -110,17 +140,28 @@
 
     loadState() {
       try {
-        const rawState = sessionStorage.getItem(STORAGE_KEY);
-        if (!rawState) {
-          return null;
-        }
+        const storages = this.getProjectStorages();
+        for (const storage of storages) {
+          const rawState = storage.getItem(STORAGE_KEY);
+          if (!rawState) {
+            continue;
+          }
 
-        const state = JSON.parse(rawState);
-        return this.normalizeStateCandidate(state);
+          const state = JSON.parse(rawState);
+          const normalized = this.normalizeStateCandidate(state);
+          if (!normalized) {
+            continue;
+          }
+
+          if (storage !== this.getPrimaryStorage()) {
+            this.saveState(normalized);
+          }
+          return normalized;
+        }
       } catch (error) {
         console.error("error loading wizard state", error);
-        return null;
       }
+      return null;
     },
 
     sanitizeStepMap(value) {
@@ -149,6 +190,10 @@
     },
 
     saveState(state) {
+      const storage = this.getPrimaryStorage();
+      if (!storage) {
+        return;
+      }
       const serializable = {
         currentStep: state.currentStep,
         completedSteps: Array.from(state.completedSteps),
@@ -158,23 +203,25 @@
         phaseReports: state.phaseReports,
         phaseAcknowledged: state.phaseAcknowledged
       };
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(serializable));
+      storage.setItem(STORAGE_KEY, JSON.stringify(serializable));
     },
 
     clearState() {
-      sessionStorage.removeItem(STORAGE_KEY);
+      this.getProjectStorages().forEach((storage) => storage.removeItem(STORAGE_KEY));
     },
 
     clearProjectSessionData() {
       const keysToRemove = [];
-      for (let index = 0; index < sessionStorage.length; index += 1) {
-        const key = sessionStorage.key(index);
-        if (typeof key === "string" && key.startsWith(STORAGE_PREFIX)) {
-          keysToRemove.push(key);
+      this.getProjectStorages().forEach((storage) => {
+        for (let index = 0; index < storage.length; index += 1) {
+          const key = storage.key(index);
+          if (typeof key === "string" && key.startsWith(STORAGE_PREFIX)) {
+            keysToRemove.push({ storage, key });
+          }
         }
-      }
-      keysToRemove.forEach((key) => sessionStorage.removeItem(key));
-      return keysToRemove;
+      });
+      keysToRemove.forEach(({ storage, key }) => storage.removeItem(key));
+      return keysToRemove.map(({ key }) => key);
     }
   };
 
@@ -1381,12 +1428,43 @@
       };
     },
 
+    filterStepMap(stepMap, allowedStepIds) {
+      return Object.fromEntries(
+        Object.entries(stepMap || {}).filter(([stepId]) => allowedStepIds.has(stepId))
+      );
+    },
+
+    buildScopedState(state, maxStepIndex) {
+      const allowedSteps = WIZARD_STEPS.slice(0, maxStepIndex + 1);
+      const allowedStepIds = new Set(allowedSteps.map((step) => step.id));
+
+      return {
+        currentStep: Math.min(state.currentStep, maxStepIndex),
+        completedSteps: Array.from(state.completedSteps).filter((index) => index <= maxStepIndex),
+        phaseAnswers: this.filterStepMap(state.phaseAnswers, allowedStepIds),
+        phaseSelections: this.filterStepMap(state.phaseSelections, allowedStepIds),
+        phaseResults: this.filterStepMap(state.phaseResults, allowedStepIds),
+        phaseReports: this.filterStepMap(state.phaseReports, allowedStepIds),
+        phaseAcknowledged: this.filterStepMap(state.phaseAcknowledged, allowedStepIds)
+      };
+    },
+
     getAnswerMap(config, answers = {}) {
-      if (!config || !Array.isArray(config.questions)) {
+      const questionDefinitions = Array.isArray(config?.questions)
+        ? config.questions
+        : Array.isArray(config?.baselineQuestions)
+          ? config.baselineQuestions
+          : Array.isArray(config?.competencies)
+            ? config.competencies
+            : Array.isArray(config?.dimensions)
+              ? config.dimensions
+              : [];
+
+      if (!questionDefinitions.length) {
         return [];
       }
 
-      return config.questions.map((question) => {
+      return questionDefinitions.map((question) => {
         const value = answers[question.id];
         const options = Array.isArray(question.options) ? question.options : [];
         const selected = options.find((option) => option.id === value);
@@ -1401,7 +1479,7 @@
       });
     },
 
-    async buildPayload(state) {
+    async buildPayload(state, maxStepIndex = WIZARD_STEPS.length - 1) {
       const [
         phaseOneConfig,
         phaseTwoConfig,
@@ -1420,7 +1498,8 @@
         phaseSevenService.loadConfig()
       ]);
 
-      const serializableState = this.getSerializableState(state);
+      const normalizedMaxStepIndex = Math.max(0, Math.min(WIZARD_STEPS.length - 1, maxStepIndex));
+      const serializableState = this.buildScopedState(state, normalizedMaxStepIndex);
       const configByStepId = {
         "fase-1": phaseOneConfig,
         "fase-2": phaseTwoConfig,
@@ -1430,8 +1509,9 @@
         "fase-6": phaseSixConfig,
         "fase-7": phaseSevenConfig
       };
+      const allowedSteps = WIZARD_STEPS.slice(0, normalizedMaxStepIndex + 1);
 
-      const phases = WIZARD_STEPS.map((step, index) => {
+      const phases = allowedSteps.map((step, index) => {
         const config = configByStepId[step.id];
         const answers = state.phaseAnswers[step.id] || {};
         const selections = state.phaseSelections[step.id] || {};
@@ -1462,28 +1542,28 @@
 
       return {
         meta: {
-          schemaVersion: "1.0.0",
+          schemaVersion: "1.1.0",
           exportedAt: new Date().toISOString(),
           storageKey: STORAGE_KEY,
-          source: "ai-adoption-wizard"
+          source: "ai-adoption-wizard",
+          maxCompletedStep: normalizedMaxStepIndex,
+          currentStepAtExport: state.currentStep,
+          exportType: normalizedMaxStepIndex === WIZARD_STEPS.length - 1
+            ? "full-snapshot"
+            : "partial-phase-snapshot"
         },
         wizardState: serializableState,
         phases,
-        sourceConfigs: {
-          "fase-1": phaseOneConfig,
-          "fase-2": phaseTwoConfig,
-          "fase-3": phaseThreeConfig,
-          "fase-4": phaseFourConfig,
-          "fase-5": phaseFiveConfig,
-          "fase-6": phaseSixConfig,
-          "fase-7": phaseSevenConfig
-        }
+        sourceConfigs: Object.fromEntries(
+          allowedSteps.map((step) => [step.id, configByStepId[step.id]])
+        )
       };
     },
 
-    download(payload) {
+    download(payload, step) {
       const timestamp = new Date().toISOString().replaceAll(":", "-").replace(/\.\d{3}Z$/u, "Z");
-      const fileName = `ai-adoption-export-${timestamp}.json`;
+      const stepLabel = step ? `-${step.id}` : "";
+      const fileName = `ai-adoption-export${stepLabel}-${timestamp}.json`;
       const text = `${JSON.stringify(payload, null, 2)}\n`;
       const blob = new Blob([text], { type: "application/json;charset=utf-8" });
       const url = URL.createObjectURL(blob);
@@ -1503,7 +1583,8 @@
     wizardShell: document.querySelector("#wizardShell"),
     welcomeMessage: document.querySelector("#welcomeMessage"),
     startFromZeroButton: document.querySelector("#startFromZeroButton"),
-    loadJsonButton: document.querySelector("#loadJsonButton"),
+    welcomeLoadJsonButton: document.querySelector("#welcomeLoadJsonButton"),
+    headerLoadJsonButton: document.querySelector("#headerLoadJsonButton"),
     loadJsonInput: document.querySelector("#loadJsonInput"),
     stepKicker: document.querySelector("#stepKicker"),
     stepTitle: document.querySelector("#stepTitle"),
@@ -1524,6 +1605,7 @@
     phaseAcknowledgment: document.querySelector("#phaseAcknowledgment"),
     gateMessage: document.querySelector("#gateMessage"),
     backButton: document.querySelector("#backButton"),
+    exportButton: document.querySelector("#exportButton"),
     nextButton: document.querySelector("#nextButton"),
     completeButton: document.querySelector("#completeButton"),
     progressValue: document.querySelector("#progressValue"),
@@ -1540,17 +1622,21 @@
     async init() {
       this.renderNavigation();
       this.attachListeners();
+      const restoredState = storageService.loadState();
+      if (restoredState) {
+        await this.startWizard(restoredState);
+        return;
+      }
       this.showWelcomeScreen();
     },
 
     attachListeners() {
       dom.startFromZeroButton.addEventListener("click", () => this.startFromZero());
-      dom.loadJsonButton.addEventListener("click", () => {
-        this.clearWelcomeMessage();
-        dom.loadJsonInput.click();
-      });
+      dom.welcomeLoadJsonButton?.addEventListener("click", () => this.openJsonPicker());
+      dom.headerLoadJsonButton?.addEventListener("click", () => this.openJsonPicker());
       dom.loadJsonInput.addEventListener("change", (event) => this.handleJsonSelection(event));
       dom.backButton.addEventListener("click", () => this.goBack());
+      dom.exportButton.addEventListener("click", () => this.exportCurrentStepJson());
       dom.nextButton.addEventListener("click", () => this.goNext());
       dom.completeButton.addEventListener("click", () => this.markCurrentStepCompleted());
       dom.sidebarToggle.addEventListener("click", () => {
@@ -1570,6 +1656,20 @@
       dom.welcomeMessage.setAttribute("hidden", "hidden");
     },
 
+    openJsonPicker() {
+      this.clearWelcomeMessage();
+      this.clearGateMessage();
+      dom.loadJsonInput.click();
+    },
+
+    showContextMessage(message) {
+      if (this.isWelcomeVisible) {
+        this.showWelcomeMessage(message);
+        return;
+      }
+      this.showGateMessage(message);
+    },
+
     showWelcomeScreen() {
       this.isWelcomeVisible = true;
       dom.welcomeScreen.removeAttribute("hidden");
@@ -1577,8 +1677,8 @@
       this.clearWelcomeMessage();
     },
 
-    async startWizard() {
-      const restoredState = storageService.loadState();
+    async startWizard(stateOverride = null) {
+      const restoredState = stateOverride || storageService.loadState();
       this.state = restoredState || createInitialWizardState();
       this.isWelcomeVisible = false;
       dom.welcomeScreen.setAttribute("hidden", "hidden");
@@ -1592,7 +1692,7 @@
       storageService.clearProjectSessionData();
       this.state = createInitialWizardState();
       storageService.saveState(this.state);
-      await this.startWizard();
+      await this.startWizard(this.state);
     },
 
     validateImportedPayload(payload) {
@@ -1604,25 +1704,46 @@
         return { valid: false, error: "JSON inválido: campo wizardState não encontrado." };
       }
 
-      const requiredFields = [
-        "currentStep",
-        "completedSteps",
-        "phaseAnswers",
-        "phaseSelections",
-        "phaseResults",
-        "phaseReports",
-        "phaseAcknowledged"
-      ];
-      const missingFields = requiredFields.filter((field) => !(field in wizardState));
-      if (missingFields.length) {
-        return { valid: false, error: `JSON incompleto: faltam campos em wizardState (${missingFields.join(", ")}).` };
-      }
-
-      const normalized = storageService.normalizeStateCandidate(wizardState);
+      const normalized = storageService.normalizeStateCandidate(wizardState, { allowPartial: true });
       if (!normalized) {
         return { valid: false, error: "JSON inválido: estrutura de wizardState incompatível." };
       }
       return { valid: true, state: normalized };
+    },
+
+    mergeImportedState(baseState, importedState) {
+      return {
+        currentStep: baseState.currentStep,
+        completedSteps: new Set([...baseState.completedSteps, ...importedState.completedSteps]),
+        phaseAnswers: {
+          ...baseState.phaseAnswers,
+          ...importedState.phaseAnswers
+        },
+        phaseSelections: {
+          ...baseState.phaseSelections,
+          ...importedState.phaseSelections
+        },
+        phaseResults: {
+          ...baseState.phaseResults,
+          ...importedState.phaseResults
+        },
+        phaseReports: {
+          ...baseState.phaseReports,
+          ...importedState.phaseReports
+        },
+        phaseAcknowledged: {
+          ...baseState.phaseAcknowledged,
+          ...importedState.phaseAcknowledged
+        }
+      };
+    },
+
+    resolveResumeStep(state) {
+      const pendingIndex = WIZARD_STEPS.findIndex((_, index) => !state.completedSteps.has(index));
+      if (pendingIndex >= 0) {
+        return pendingIndex;
+      }
+      return WIZARD_STEPS.length - 1;
     },
 
     async handleJsonSelection(event) {
@@ -1638,17 +1759,20 @@
         const parsed = JSON.parse(text);
         const validation = this.validateImportedPayload(parsed);
         if (!validation.valid) {
-          this.showWelcomeMessage(validation.error);
+          this.showContextMessage(validation.error);
           return;
         }
 
-        storageService.clearProjectSessionData();
-        storageService.saveState(validation.state);
-        this.state = validation.state;
-        await this.startWizard();
+        const baseState = storageService.loadState() || this.state || createInitialWizardState();
+        const mergedState = this.mergeImportedState(baseState, validation.state);
+        mergedState.currentStep = this.resolveResumeStep(mergedState);
+        storageService.saveState(mergedState);
+        this.state = mergedState;
+        await this.startWizard(mergedState);
+        this.showGateMessage("Histórico importado com sucesso. Você pode continuar da próxima fase pendente.");
       } catch (error) {
         console.error("error importing json", error);
-        this.showWelcomeMessage("Não foi possível carregar o JSON. Verifique se o arquivo está válido.");
+        this.showContextMessage("Não foi possível carregar o JSON. Verifique se o arquivo está válido.");
       }
     },
 
@@ -1656,9 +1780,9 @@
       return STEP_DEPENDENCIES[index] || [];
     },
 
-    getMissingDependencies(index) {
+    getMissingDependencies(index, completedSteps = this.state.completedSteps) {
       const dependencies = this.getStepDependencies(index);
-      return dependencies.filter((dependencyIndex) => !this.state.completedSteps.has(dependencyIndex));
+      return dependencies.filter((dependencyIndex) => !completedSteps.has(dependencyIndex));
     },
 
     formatPhaseList(indexes) {
@@ -1672,8 +1796,14 @@
       return `${labels.slice(0, -1).join(", ")} e ${labels[labels.length - 1]}`;
     },
 
-    canAccessStep(index) {
-      return this.getMissingDependencies(index).length === 0;
+    canAccessStep(index, completedSteps = this.state.completedSteps) {
+      return this.getMissingDependencies(index, completedSteps).length === 0;
+    },
+
+    getProjectedCompletedSteps() {
+      const projected = new Set(this.state.completedSteps);
+      projected.add(this.state.currentStep);
+      return projected;
     },
 
     isPhaseOneGateSatisfied() {
@@ -1737,6 +1867,32 @@
         return this.isPhaseSevenGateSatisfied();
       }
       return this.isStepAcknowledged(currentStep.id);
+    },
+
+    async getCurrentStepGateMessage() {
+      const currentStep = WIZARD_STEPS[this.state.currentStep];
+      if (currentStep.id === "fase-1") {
+        return this.buildPhaseOneGateMessage();
+      }
+      if (currentStep.id === "fase-2") {
+        return this.buildPhaseTwoGateMessage();
+      }
+      if (currentStep.id === "fase-3") {
+        return this.buildPhaseThreeGateMessage();
+      }
+      if (currentStep.id === "fase-4") {
+        return this.buildPhaseFourGateMessage();
+      }
+      if (currentStep.id === "fase-5") {
+        return this.buildPhaseFiveGateMessage();
+      }
+      if (currentStep.id === "fase-6") {
+        return this.buildPhaseSixGateMessage();
+      }
+      if (currentStep.id === "fase-7") {
+        return this.buildPhaseSevenGateMessage();
+      }
+      return `Confirme o entendimento da Fase ${currentStep.order} para continuar.`;
     },
 
     isPhaseTwoGateSatisfied() {
@@ -3144,10 +3300,20 @@
       `;
     },
 
-    async exportConsolidatedJson() {
-      const payload = await exportService.buildPayload(this.state);
-      const fileName = exportService.download(payload);
-      this.showGateMessage(`Exportação gerada com sucesso: ${fileName}`);
+    async exportCurrentStepJson() {
+      if (!this.isCurrentStepCompletionReady()) {
+        this.showGateMessage(await this.getCurrentStepGateMessage());
+        return;
+      }
+
+      const step = WIZARD_STEPS[this.state.currentStep];
+      const exportState = {
+        ...this.state,
+        completedSteps: new Set([...this.state.completedSteps, this.state.currentStep])
+      };
+      const payload = await exportService.buildPayload(exportState, this.state.currentStep);
+      const fileName = exportService.download(payload, step);
+      this.showGateMessage(`Snapshot da ${step.title} exportado com sucesso: ${fileName}`);
     },
 
     async renderPhaseSevenInteractive() {
@@ -3226,11 +3392,11 @@
           </section>
 
           <section class="phase-five-card${scalePlan ? "" : " locked"}">
-            <h4>3) Exportar diagnóstico consolidado</h4>
-            <p>Gera um JSON único com respostas, preenchimentos, resultados e relatórios de todas as fases.</p>
-            <button type="button" class="btn btn-primary" data-phase-seven-export ${scalePlan ? "" : "disabled"}>
-              Exportar JSON consolidado
-            </button>
+            <h4>3) Continuidade do histórico</h4>
+            <p>
+              Após confirmar o entendimento da fase, use o botão <strong>Exportar etapa</strong> no rodapé para
+              gerar um snapshot com esta fase e todas as anteriores.
+            </p>
           </section>
         </div>
       `;
@@ -3249,9 +3415,6 @@
         });
       });
 
-      dom.diagnosisInteractive.querySelector("[data-phase-seven-export]")?.addEventListener("click", async () => {
-        await this.exportConsolidatedJson();
-      });
     },
 
     async renderPhaseThreeInteractive() {
@@ -3409,8 +3572,15 @@
 
     updateButtons() {
       const currentStep = WIZARD_STEPS[this.state.currentStep];
+      const isReady = this.isCurrentStepCompletionReady();
+      const projectedCompletedSteps = this.getProjectedCompletedSteps();
+      const canAdvance = this.state.currentStep < WIZARD_STEPS.length - 1
+        && isReady
+        && this.canAccessStep(this.state.currentStep + 1, projectedCompletedSteps);
+
       dom.backButton.disabled = this.state.currentStep === 0;
-      dom.nextButton.disabled = this.state.currentStep === WIZARD_STEPS.length - 1;
+      dom.nextButton.disabled = !canAdvance;
+      dom.exportButton.disabled = !isReady;
       if (currentStep.id === "fase-1") {
         dom.backButton.setAttribute("hidden", "hidden");
       } else {
@@ -3423,7 +3593,6 @@
       }
 
       const done = this.state.completedSteps.has(this.state.currentStep);
-      const isReady = this.isCurrentStepCompletionReady();
       dom.completeButton.textContent = done ? "Concluída" : "Marcar como concluída";
       dom.completeButton.disabled = done || !isReady;
     },
@@ -3489,9 +3658,15 @@
         return;
       }
 
+      if (!this.isCurrentStepCompletionReady()) {
+        this.showGateMessage(await this.getCurrentStepGateMessage());
+        return;
+      }
+
       const nextStepIndex = this.state.currentStep + 1;
-      if (!this.canAccessStep(nextStepIndex)) {
-        const missing = this.getMissingDependencies(nextStepIndex);
+      const projectedCompletedSteps = this.getProjectedCompletedSteps();
+      if (!this.canAccessStep(nextStepIndex, projectedCompletedSteps)) {
+        const missing = this.getMissingDependencies(nextStepIndex, projectedCompletedSteps);
         if (missing.includes(0)) {
           this.showGateMessage(await this.buildPhaseOneGateMessage());
           return;
@@ -3527,6 +3702,7 @@
       }
 
       this.clearGateMessage();
+      this.state.completedSteps.add(this.state.currentStep);
       this.state.currentStep = nextStepIndex;
       this.scrollToTop();
       this.render();

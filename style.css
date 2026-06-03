@@ -230,6 +230,13 @@ p {
   gap: 16px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+}
+
 .step-kicker {
   color: var(--body);
   margin-bottom: 8px;
@@ -1034,6 +1041,7 @@ p {
   gap: 12px;
   margin-top: 24px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .btn {
@@ -1069,6 +1077,11 @@ p {
   background: var(--canvas-soft);
   border: 1px solid rgba(32, 21, 21, 0.16);
   color: var(--ink);
+}
+
+.btn-danger {
+  background: #b63f2f;
+  color: #fffaf5;
 }
 
 .site-footer {
@@ -1133,6 +1146,10 @@ p {
     align-items: flex-start;
   }
 
+  .header-actions {
+    margin-left: 0;
+  }
+
   .progress-wrapper {
     width: 100%;
   }
@@ -1164,6 +1181,16 @@ p {
   }
 
   .welcome-actions .btn {
+    width: 100%;
+  }
+
+  .header-actions,
+  .actions {
+    width: 100%;
+  }
+
+  .header-actions .btn,
+  .actions .btn {
     width: 100%;
   }
 }

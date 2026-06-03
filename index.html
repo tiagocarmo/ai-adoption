@@ -11,6 +11,8 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <input type="file" id="loadJsonInput" accept="application/json,.json" hidden>
+
   <section class="welcome-screen" id="welcomeScreen" aria-label="Boas-vindas ao AI Adoption Wizard">
     <div class="welcome-card">
       <p class="welcome-kicker">Framework AI Adoption</p>
@@ -28,8 +30,7 @@
       <p id="welcomeMessage" class="welcome-message" hidden></p>
       <div class="welcome-actions">
         <button type="button" class="btn btn-primary" id="startFromZeroButton">Iniciar</button>
-        <button type="button" class="btn btn-secondary" id="loadJsonButton">Carregar JSON</button>
-        <input type="file" id="loadJsonInput" accept="application/json,.json" hidden>
+        <button type="button" class="btn btn-secondary" id="welcomeLoadJsonButton">Carregar JSON</button>
       </div>
     </div>
   </section>
@@ -53,6 +54,9 @@
         <div>
           <p class="step-kicker" id="stepKicker">Etapa 1 de 7</p>
           <h2 id="stepTitle">Carregando...</h2>
+        </div>
+        <div class="header-actions">
+          <button type="button" class="btn btn-secondary" id="headerLoadJsonButton">Importar JSON</button>
         </div>
         <div class="progress-wrapper" aria-label="Progresso geral">
           <div class="progress-ring" id="progressRing" role="img" aria-label="0% concluído">
@@ -93,6 +97,7 @@
       <footer class="actions">
         <button type="button" class="btn btn-secondary" id="backButton">Voltar</button>
         <button type="button" class="btn btn-ghost" id="completeButton">Marcar como concluída</button>
+        <button type="button" class="btn btn-danger" id="exportButton">Exportar etapa</button>
         <button type="button" class="btn btn-primary" id="nextButton">Próximo</button>
       </footer>
     </main>

@@ -29,6 +29,8 @@ function createElement() {
     querySelector() {
       return null;
     },
+    click() {},
+    remove() {},
     setAttribute(key, value) {
       this.attributes[key] = value;
     },
@@ -46,7 +48,8 @@ const elements = {
   "#wizardShell": createElement(),
   "#welcomeMessage": createElement(),
   "#startFromZeroButton": createElement(),
-  "#loadJsonButton": createElement(),
+  "#welcomeLoadJsonButton": createElement(),
+  "#headerLoadJsonButton": createElement(),
   "#loadJsonInput": createElement(),
   "#stepKicker": createElement(),
   "#stepTitle": createElement(),
@@ -67,6 +70,7 @@ const elements = {
   "#phaseAcknowledgment": createElement(),
   "#gateMessage": createElement(),
   "#backButton": createElement(),
+  "#exportButton": createElement(),
   "#nextButton": createElement(),
   "#completeButton": createElement(),
   "#progressValue": createElement(),
@@ -78,21 +82,8 @@ const elements = {
 
 elements["#stepsNav"].querySelectorAll = () => [];
 
-const context = {
-  console,
-  window: {
-    scrollToCalls: [],
-    scrollTo(options) {
-      this.scrollToCalls.push(options);
-    }
-  },
-  document: {
-    querySelector(selector) {
-      return elements[selector] || createElement();
-    },
-    addEventListener() {}
-  },
-  sessionStorage: {
+function createStorage() {
+  return {
     data: {},
     get length() {
       return Object.keys(this.data).length;
@@ -109,7 +100,31 @@ const context = {
     removeItem(key) {
       delete this.data[key];
     }
+  };
+}
+
+const context = {
+  console,
+  window: {
+    scrollToCalls: [],
+    scrollTo(options) {
+      this.scrollToCalls.push(options);
+    }
   },
+  document: {
+    querySelector(selector) {
+      return elements[selector] || createElement();
+    },
+    createElement() {
+      return createElement();
+    },
+    body: {
+      appendChild() {}
+    },
+    addEventListener() {}
+  },
+  localStorage: createStorage(),
+  sessionStorage: createStorage(),
   fetch: async (path) => {
     if (path.endsWith("03-definicao-do-time-piloto.json")) {
       return {
@@ -449,49 +464,95 @@ const {
 } = context.window.AIAdoptionWizard;
 
 function testStoragePrefixCleanup() {
-  context.sessionStorage.data = {
+  context.localStorage.data = {
     "ai-adoption-data-wizard-state": "{\"currentStep\":1}",
     "ai-adoption-data-temp": "x",
     unrelated: "keep"
   };
+  context.sessionStorage.data = {
+    "ai-adoption-data-legacy": "legacy",
+    sessionOnly: "keep"
+  };
 
   const removed = storageService.clearProjectSessionData();
-  assert(removed.length === 2, "must remove only ai-adoption-data-* keys");
-  assert(context.sessionStorage.data.unrelated === "keep", "must preserve unrelated session keys");
-  assert(!("ai-adoption-data-temp" in context.sessionStorage.data), "must remove prefixed key");
+  assert(removed.length === 3, "must remove prefixed keys from project storages");
+  assert(context.localStorage.data.unrelated === "keep", "must preserve unrelated local keys");
+  assert(context.sessionStorage.data.sessionOnly === "keep", "must preserve unrelated session keys");
+  assert(!("ai-adoption-data-temp" in context.localStorage.data), "must remove prefixed local key");
+  assert(!("ai-adoption-data-legacy" in context.sessionStorage.data), "must remove prefixed session key");
 }
 
 function testImportPayloadValidation() {
   const validPayload = {
     wizardState: {
-      currentStep: 2,
-      completedSteps: [0, 1],
-      phaseAnswers: { "fase-1": { q1: "high" } },
-      phaseSelections: {},
-      phaseResults: {},
-      phaseReports: {},
-      phaseAcknowledged: { "fase-1": true }
+      completedSteps: [0],
+      phaseAnswers: { "fase-1": { q1: "high" } }
     }
   };
   const valid = wizardController.validateImportedPayload(validPayload);
-  assert(valid.valid, "must accept valid consolidated payload");
-  assert(valid.state.currentStep === 2, "must keep imported step");
+  assert(valid.valid, "must accept partial wizardState payload");
+  assert(valid.state.completedSteps.has(0), "must keep imported completed step");
 
-  const invalid = wizardController.validateImportedPayload({ wizardState: { currentStep: 1 } });
-  assert(!invalid.valid, "must reject incomplete wizardState");
+  const invalid = wizardController.validateImportedPayload({ wizardState: "bad" });
+  assert(!invalid.valid, "must reject incompatible wizardState");
+}
+
+function testImportMergeAndResume() {
+  const merged = wizardController.mergeImportedState(
+    {
+      currentStep: 3,
+      completedSteps: new Set([0, 1, 2, 3]),
+      phaseAnswers: { "fase-2": { prompt_engineering: "familiar" } },
+      phaseSelections: { "fase-3": { mode: "squad" } },
+      phaseResults: {},
+      phaseReports: {},
+      phaseAcknowledged: { "fase-2": true }
+    },
+    {
+      currentStep: 0,
+      completedSteps: new Set([0, 1, 4]),
+      phaseAnswers: { "fase-1": { q1: "high" }, "fase-5": { overallLevel: "medium" } },
+      phaseSelections: {},
+      phaseResults: {},
+      phaseReports: {},
+      phaseAcknowledged: { "fase-5": true }
+    }
+  );
+
+  assert(merged.completedSteps.has(4), "must merge imported completed steps");
+  assert(merged.completedSteps.has(2), "must preserve existing completed steps");
+  assert(merged.phaseAnswers["fase-2"].prompt_engineering === "familiar", "must preserve existing phase data");
+  assert(merged.phaseAnswers["fase-5"].overallLevel === "medium", "must merge imported phase data");
+
+  const nextFromPhaseOne = wizardController.resolveResumeStep({
+    ...merged,
+    completedSteps: new Set([0])
+  });
+  assert(nextFromPhaseOne === 1, "phase 1 snapshot must resume at phase 2");
+
+  const nextFromPhaseFive = wizardController.resolveResumeStep({
+    ...merged,
+    completedSteps: new Set([0, 1, 2, 3, 4])
+  });
+  assert(nextFromPhaseFive === 5, "phase 5 snapshot must resume at phase 6");
 }
 
 function testWelcomeLabels() {
   const indexHtml = fs.readFileSync("./index.html", "utf8");
   assert(indexHtml.includes(">Iniciar</button>"), "welcome primary action must be 'Iniciar'");
   assert(indexHtml.includes(">Carregar JSON</button>"), "welcome secondary action must be 'Carregar JSON'");
+  assert(indexHtml.includes(">Importar JSON</button>"), "header import action must be available");
+  assert(indexHtml.includes(">Exportar etapa</button>"), "footer export action must be available");
 }
 
 async function testStartFromZeroFlow() {
-  context.sessionStorage.data = {
+  context.localStorage.data = {
     "ai-adoption-data-wizard-state": "{\"currentStep\":6}",
     "ai-adoption-data-temp": "old",
     external: "keep"
+  };
+  context.sessionStorage.data = {
+    "ai-adoption-data-legacy": "old"
   };
   elements["#welcomeScreen"].attributes = {};
   elements["#wizardShell"].attributes = {};
@@ -501,8 +562,9 @@ async function testStartFromZeroFlow() {
   assert(wizardController.isWelcomeVisible === false, "must mark welcome as hidden after start");
   assert(elements["#welcomeScreen"].attributes.hidden === "hidden", "must hide welcome screen");
   assert(!("hidden" in elements["#wizardShell"].attributes), "must reveal wizard shell");
-  assert(!("ai-adoption-data-temp" in context.sessionStorage.data), "must clean prefixed storage keys");
-  assert(context.sessionStorage.data.external === "keep", "must keep unrelated storage keys");
+  assert(!("ai-adoption-data-temp" in context.localStorage.data), "must clean prefixed local storage keys");
+  assert(context.localStorage.data.external === "keep", "must keep unrelated local storage keys");
+  assert(!("ai-adoption-data-legacy" in context.sessionStorage.data), "must clean prefixed session storage keys");
 }
 
 function testMarkdownParse() {
@@ -1115,33 +1177,47 @@ function testPhaseSevenPlanAndGate() {
 
 async function testExportPayloadStructure() {
   wizardController.state = {
-    currentStep: 6,
-    completedSteps: new Set([0, 1, 2, 3, 4, 5]),
+    currentStep: 4,
+    completedSteps: new Set([0, 1, 2, 3]),
     phaseAnswers: {
       "fase-1": { q1: "high", q2: "medium" },
+      "fase-5": {
+        currentAiUsage: "team",
+        overallLevel: "medium"
+      },
       "fase-7": {
-        engineeringSize: "10-29",
-        currentWeeklyAdoption: "50-79",
-        squadsWithTeamLevelSdlc: "60-89",
-        governancePhaseSixStatus: "active-review",
-        doraTrend: "improving",
-        championsPerSquad: "full"
+        engineeringSize: "10-29"
       }
     },
     phaseSelections: { "fase-2": { archetypeId: "lean", proficiencyLevelId: "l1" } },
-    phaseResults: { "fase-7": { answeredCount: 6, total: 6, hasPlan: true } },
-    phaseReports: { "fase-7": { rollout: { waves: 2 } } },
-    phaseAcknowledged: { "fase-7": true }
+    phaseResults: { "fase-5": { valid: true, validation: { valid: true, missing: [] } } },
+    phaseReports: { "fase-5": { checklist: ["a"] } },
+    phaseAcknowledged: { "fase-5": true }
   };
 
-  const payload = await exportService.buildPayload(wizardController.state);
+  const payload = await exportService.buildPayload(wizardController.state, 4);
   assert(payload.meta && payload.meta.schemaVersion, "export must include meta schema");
+  assert(payload.meta.exportType === "partial-phase-snapshot", "phase export must be partial before phase 7");
+  assert(payload.meta.maxCompletedStep === 4, "phase export must declare max completed step");
   assert(payload.wizardState && payload.wizardState.phaseAnswers, "export must include wizard state");
-  assert(Array.isArray(payload.phases) && payload.phases.length === 7, "export must include all 7 phases");
-  assert(payload.sourceConfigs["fase-7"], "export must include phase 7 source config");
+  assert(Array.isArray(payload.phases) && payload.phases.length === 5, "phase export must include only prior phases");
+  assert(!payload.sourceConfigs["fase-7"], "phase export must omit future phase configs");
+  assert(!payload.wizardState.phaseAnswers["fase-7"], "phase export must omit future phase answers");
+  assert(!payload.wizardState.completedSteps.includes(4), "raw scoped payload should preserve explicit completion state");
 
-  const phaseSeven = payload.phases.find((item) => item.id === "fase-7");
-  assert(phaseSeven.inputs.questionAnswerMap.length === 6, "phase 7 export must include organized question map");
+  const phaseFive = payload.phases.find((item) => item.id === "fase-5");
+  assert(phaseFive.inputs.questionAnswerMap.length === 6, "phase 5 export must include organized question map");
+
+  const fullPayload = await exportService.buildPayload(
+    {
+      ...wizardController.state,
+      currentStep: 6,
+      completedSteps: new Set([0, 1, 2, 3, 4, 5, 6])
+    },
+    6
+  );
+  assert(fullPayload.meta.exportType === "full-snapshot", "phase 7 export must be full snapshot");
+  assert(fullPayload.phases.length === 7, "phase 7 export must include all phases");
 }
 
 function testCanAccessStep() {
@@ -1213,6 +1289,22 @@ function testCurrentStepCompletionReadiness() {
   assert(wizardController.isCurrentStepCompletionReady(), "phase 5 should pass with valid plan + ack");
 }
 
+async function testGoNextAutoCompletesPhase() {
+  wizardController.state = {
+    currentStep: 0,
+    completedSteps: new Set(),
+    phaseAnswers: {},
+    phaseSelections: {},
+    phaseResults: { "fase-1": { answeredCount: 9, total: 9 } },
+    phaseReports: {},
+    phaseAcknowledged: { "fase-1": true }
+  };
+
+  await wizardController.goNext();
+  assert(wizardController.state.currentStep === 1, "next must move to the following phase");
+  assert(wizardController.state.completedSteps.has(0), "next must auto-complete current phase when gate is satisfied");
+}
+
 function testQuestionTableRender() {
   const question = {
     id: "qx",
@@ -1251,8 +1343,9 @@ function testWizardBoundaries() {
 function testScrollTopOnNavigation() {
   context.window.scrollToCalls = [];
   wizardController.state.completedSteps = new Set([0, 1, 2, 3, 4, 5]);
-
   wizardController.state.currentStep = 0;
+  wizardController.state.phaseResults = { "fase-1": { answeredCount: 9, total: 9 } };
+  wizardController.state.phaseAcknowledged = { "fase-1": true };
   wizardController.goNext();
   assert(context.window.scrollToCalls.length === 1, "must call scrollTo on next");
   assert(context.window.scrollToCalls[0].top === 0, "must scroll to top");
@@ -1295,6 +1388,8 @@ function testButtonVisibilityByPhase() {
   wizardController.updateButtons();
   assert(elements["#backButton"].attributes.hidden === "hidden", "phase 1 must hide back button");
   assert(!elements["#nextButton"].attributes.hidden, "phase 1 must keep next button visible");
+  assert(elements["#nextButton"].disabled, "next must stay disabled until gate is satisfied");
+  assert(elements["#exportButton"].disabled, "export must stay disabled until gate is satisfied");
 
   wizardController.state.currentStep = 6;
   wizardController.state.phaseResults["fase-7"] = { answeredCount: 0, total: 6, hasPlan: false };
@@ -1304,13 +1399,16 @@ function testButtonVisibilityByPhase() {
   assert(!elements["#backButton"].attributes.hidden, "phase 7 must show back button");
 
   wizardController.state.currentStep = 2;
-  wizardController.state.phaseResults["fase-3"] = { answeredCount: 0, total: 5 };
-  wizardController.state.phaseSelections = { "fase-3": {} };
-  wizardController.state.phaseReports = {};
-  wizardController.state.phaseAcknowledged["fase-3"] = false;
+  wizardController.state.completedSteps = new Set([0, 1]);
+  wizardController.state.phaseResults["fase-3"] = { answeredCount: 5, total: 5 };
+  wizardController.state.phaseSelections = { "fase-3": { mode: "squad" } };
+  wizardController.state.phaseReports = { "fase-3": { candidateName: "Squad X" } };
+  wizardController.state.phaseAcknowledged["fase-3"] = true;
   wizardController.updateButtons();
   assert(!elements["#backButton"].attributes.hidden, "middle phases must show back button");
   assert(!elements["#nextButton"].attributes.hidden, "middle phases must show next button");
+  assert(!elements["#nextButton"].disabled, "next must enable when current phase gate is satisfied");
+  assert(!elements["#exportButton"].disabled, "export must enable when current phase gate is satisfied");
 }
 
 function testStructuralCoverageContracts() {
@@ -1392,6 +1490,7 @@ async function run() {
   const tests = [
     testStoragePrefixCleanup,
     testImportPayloadValidation,
+    testImportMergeAndResume,
     testWelcomeLabels,
     testStartFromZeroFlow,
     testMarkdownParse,
@@ -1416,6 +1515,7 @@ async function run() {
     testCanAccessStep,
     testMissingDependencies,
     testCurrentStepCompletionReadiness,
+    testGoNextAutoCompletesPhase,
     testQuestionTableRender,
     testWizardBoundaries,
     testScrollTopOnNavigation,
