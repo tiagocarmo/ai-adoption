@@ -691,17 +691,62 @@
       }
 
       const modeFields = config.requiredFieldsByMode[mode] || [];
-      const missing = modeFields
-        .filter((field) => !(selection[field] && String(selection[field]).trim()))
-        .map((field) => {
-          const label = config.fieldLabels[field] || field;
-          return `Preencha: ${label}.`;
-        });
+      const missingFields = modeFields
+        .filter((field) => !(selection[field] && String(selection[field]).trim()));
+      const missing = missingFields.map((field) => {
+        const label = config.fieldLabels[field] || field;
+        return `Preencha: ${label}.`;
+      });
 
       return {
         valid: missing.length === 0,
-        missing
+        missing,
+        missingFields
       };
+    },
+
+    getPendingItems(config, { answers = {}, selection = {}, acknowledged = false } = {}) {
+      const pending = [];
+      const validation = this.validateSelection(config, selection);
+      const hasValidMode = Boolean(selection.mode)
+        && config.inputModes.some((inputMode) => inputMode.id === selection.mode);
+
+      if (!hasValidMode) {
+        pending.push({
+          id: "mode",
+          kind: "selection",
+          label: "Selecione o modo de avaliação do candidato ao piloto."
+        });
+      } else {
+        (validation.missingFields || []).forEach((field) => {
+          const label = config.fieldLabels[field] || field;
+          pending.push({
+            id: `field-${field}`,
+            kind: "field",
+            field,
+            label: `Preencha o campo: ${label}.`
+          });
+        });
+      }
+
+      const result = this.calculateResult(config, answers);
+      if (result.answeredCount < result.total) {
+        pending.push({
+          id: "dimensions",
+          kind: "answers",
+          label: `Responda as ${result.total} dimensões de prontidão (faltam ${result.total - result.answeredCount}).`
+        });
+      }
+
+      if (!acknowledged) {
+        pending.push({
+          id: "acknowledgment",
+          kind: "ack",
+          label: "Marque a confirmação de entendimento da Fase 3."
+        });
+      }
+
+      return pending;
     },
 
     buildRecommendations(config, result) {
@@ -886,6 +931,120 @@
       });
 
       return clean;
+    },
+
+    getBacklogItemIssues(item, config) {
+      const descricao = typeof item?.descricao === "string" ? item.descricao.trim() : "";
+      const trilhaId = typeof item?.trilhaId === "string" ? item.trilhaId.trim() : "";
+      const scores = [Number(item?.impacto), Number(item?.esforco), Number(item?.risco)];
+
+      const issues = {
+        emptyDescription: !descricao,
+        tooLong: descricao.length > 240,
+        invalidScores: !scores.every((value) => Number.isInteger(value) && value >= 1 && value <= 3),
+        unknownTrack: !trilhaId || !config.trilhas.some((trilha) => trilha.id === trilhaId),
+        duplicate: false
+      };
+      issues.hasIssues = issues.emptyDescription || issues.tooLong || issues.invalidScores || issues.unknownTrack;
+      return issues;
+    },
+
+    getBacklogDiagnostics(config, items = []) {
+      const list = Array.isArray(items) ? items : [];
+      const issuesById = {};
+      const invalidIds = [];
+      const duplicateIds = [];
+      const validItems = [];
+      const trackCount = config.trilhas.reduce((acc, trilha) => {
+        acc[trilha.id] = 0;
+        return acc;
+      }, {});
+      const seen = new Set();
+
+      list.forEach((item, index) => {
+        const id = item && typeof item.id === "string" && item.id ? item.id : `f4-${index + 1}`;
+        const issues = this.getBacklogItemIssues(item, config);
+        issuesById[id] = issues;
+
+        if (issues.hasIssues) {
+          invalidIds.push(id);
+          return;
+        }
+
+        const trilhaId = item.trilhaId.trim();
+        const descricao = item.descricao.trim();
+        const dedupeKey = `${trilhaId}|${descricao.toLowerCase()}`;
+        if (seen.has(dedupeKey)) {
+          issues.duplicate = true;
+          duplicateIds.push(id);
+          return;
+        }
+        seen.add(dedupeKey);
+        trackCount[trilhaId] += 1;
+
+        const source = typeof item.source === "string" ? item.source.trim() : "";
+        validItems.push({
+          id,
+          trilhaId,
+          descricao,
+          source: ["phase-1", "phase-3", "default", "manual"].includes(source) ? source : "manual",
+          impacto: Number(item.impacto),
+          esforco: Number(item.esforco),
+          risco: Number(item.risco)
+        });
+      });
+
+      const missingTracks = config.trilhas.filter((trilha) => (trackCount[trilha.id] || 0) < 1);
+
+      return {
+        issuesById,
+        invalidIds,
+        duplicateIds,
+        validItems,
+        trackCount,
+        missingTracks
+      };
+    },
+
+    getPendingItems(config, { backlogItems = [], acknowledged = false } = {}) {
+      const diagnostics = this.getBacklogDiagnostics(config, backlogItems);
+      const pending = [];
+
+      diagnostics.missingTracks.forEach((trilha) => {
+        pending.push({
+          id: `track-${trilha.id}`,
+          kind: "track",
+          label: `Inclua ao menos 1 gargalo válido na trilha ${trilha.label || trilha.id}.`
+        });
+      });
+
+      if (diagnostics.invalidIds.length) {
+        pending.push({
+          id: "invalid-items",
+          kind: "invalid",
+          itemIds: [...diagnostics.invalidIds],
+          label: `${diagnostics.invalidIds.length} item(ns) do backlog com dados inválidos: descrição vazia ou acima de 240 caracteres, trilha inexistente ou pontuação fora de 1-3.`
+        });
+      }
+
+      if (diagnostics.duplicateIds.length) {
+        pending.push({
+          id: "duplicate-items",
+          kind: "duplicate",
+          itemIds: [...diagnostics.duplicateIds],
+          label: `${diagnostics.duplicateIds.length} item(ns) duplicados na mesma trilha — ajuste a descrição ou remova.`
+        });
+      }
+
+      if (!acknowledged) {
+        pending.push({
+          id: "acknowledgment",
+          kind: "ack",
+          label: "Marque a confirmação de entendimento da Fase 4."
+        });
+      }
+
+      return pending;
     },
 
     calculateScore(item) {
@@ -1603,6 +1762,7 @@
     criteriaSection: document.querySelector("#criteriaSection"),
     diagnosisInteractive: document.querySelector("#diagnosisInteractive"),
     phaseAcknowledgment: document.querySelector("#phaseAcknowledgment"),
+    pendingPanel: document.querySelector("#pendingPanel"),
     gateMessage: document.querySelector("#gateMessage"),
     backButton: document.querySelector("#backButton"),
     exportButton: document.querySelector("#exportButton"),
@@ -1954,44 +2114,33 @@
       );
     },
 
-    async getPhaseThreeMissingItems() {
-      const config = await phaseThreeService.loadConfig();
-      const selection = this.state.phaseSelections["fase-3"] || {};
-      const validation = phaseThreeService.validateSelection(config, selection);
-      const result = this.state.phaseResults["fase-3"];
-      const answeredCount = result?.answeredCount || 0;
-      const total = result?.total || config.dimensions.length;
-      const needsAcknowledgment = !Boolean(this.state.phaseAcknowledged["fase-3"]);
-      const needsReport = !Boolean(this.state.phaseReports["fase-3"]);
+    async getPhasePendingItems(stepKey, state = this.state) {
+      if (stepKey === "fase-3") {
+        const config = await phaseThreeService.loadConfig();
+        return phaseThreeService.getPendingItems(config, {
+          answers: state.phaseAnswers["fase-3"] || {},
+          selection: state.phaseSelections["fase-3"] || {},
+          acknowledged: Boolean(state.phaseAcknowledged["fase-3"])
+        });
+      }
 
-      return {
-        missingSelection: validation.missing,
-        answeredCount,
-        total,
-        needsAcknowledgment,
-        needsReport
-      };
+      if (stepKey === "fase-4") {
+        const config = await phaseFourService.loadConfig();
+        const selections = state.phaseSelections["fase-4"] || {};
+        return phaseFourService.getPendingItems(config, {
+          backlogItems: Array.isArray(selections.backlogItems) ? selections.backlogItems : [],
+          acknowledged: Boolean(state.phaseAcknowledged["fase-4"])
+        });
+      }
+
+      return null;
     },
 
     async buildPhaseThreeGateMessage() {
-      const pending = await this.getPhaseThreeMissingItems();
-      const parts = [];
-      if (pending.missingSelection.length) {
-        parts.push(pending.missingSelection.join(" "));
-      }
-      if (pending.answeredCount < pending.total) {
-        parts.push(
-          `Responda todas as dimensões de prontidão (${pending.answeredCount}/${pending.total} respondidas).`
-        );
-      }
-      if (pending.needsReport) {
-        parts.push("Complete os campos mínimos para gerar o resumo executivo da Fase 3.");
-      }
-      if (pending.needsAcknowledgment) {
-        parts.push("Marque a confirmação de entendimento da Fase 3.");
-      }
-
-      return parts.length ? parts.join(" | ") : "Conclua a Fase 3 para avançar.";
+      const pending = await this.getPhasePendingItems("fase-3");
+      return pending && pending.length
+        ? pending.map((item) => item.label).join(" | ")
+        : "Conclua a Fase 3 para avançar.";
     },
 
     isPhaseFourGateSatisfied() {
@@ -2001,27 +2150,17 @@
         result
         && result.hasMinimumByTrack
         && result.invalidCount === 0
+        && (result.duplicateCount || 0) === 0
         && result.roadmapItemCount > 0
         && acknowledged
       );
     },
 
     async buildPhaseFourGateMessage() {
-      const result = this.state.phaseResults["fase-4"] || {};
-      const parts = [];
-      if (!result.hasMinimumByTrack) {
-        parts.push("Inclua ao menos 1 gargalo em cada trilha: Técnica, Organizacional e Cultura.");
-      }
-      if ((result.invalidCount || 0) > 0) {
-        parts.push(`Existem ${result.invalidCount} item(ns) com dados inválidos no backlog.`);
-      }
-      if ((result.roadmapItemCount || 0) === 0) {
-        parts.push("Preencha o backlog com impacto, esforço e risco para gerar o plano 30/90/180.");
-      }
-      if (!Boolean(this.state.phaseAcknowledged["fase-4"])) {
-        parts.push("Marque a confirmação de entendimento da Fase 4.");
-      }
-      return parts.length ? parts.join(" | ") : "Conclua a Fase 4 para avançar.";
+      const pending = await this.getPhasePendingItems("fase-4");
+      return pending && pending.length
+        ? pending.map((item) => item.label).join(" | ")
+        : "Conclua a Fase 4 para avançar.";
     },
 
     isPhaseFiveGateSatisfied() {
@@ -2186,10 +2325,43 @@
         this.renderPhaseAcknowledgment(step);
       }
 
+      await this.renderPendingPanel();
       this.updateProgress();
       this.updateButtons();
       this.updateNavigationState();
       storageService.saveState(this.state);
+    },
+
+    async renderPendingPanel() {
+      const panel = dom.pendingPanel;
+      if (!panel) {
+        return;
+      }
+
+      const step = WIZARD_STEPS[this.state.currentStep];
+      const pending = await this.getPhasePendingItems(step.id);
+
+      if (pending === null) {
+        panel.innerHTML = "";
+        panel.classList.remove("pending-panel--done");
+        panel.setAttribute("hidden", "hidden");
+        return;
+      }
+
+      panel.removeAttribute("hidden");
+      if (!pending.length) {
+        panel.classList.add("pending-panel--done");
+        panel.innerHTML = '<p class="pending-panel-title">Tudo certo! Você já pode marcar a etapa como concluída e avançar.</p>';
+        return;
+      }
+
+      panel.classList.remove("pending-panel--done");
+      panel.innerHTML = `
+        <p class="pending-panel-title">Para concluir esta etapa (${pending.length} pendência${pending.length > 1 ? "s" : ""}):</p>
+        <ul class="pending-panel-list">
+          ${pending.map((item) => `<li>${this.escapeHtml(item.label)}</li>`).join("")}
+        </ul>
+      `;
     },
 
     renderPhaseAcknowledgment(step) {
@@ -2514,18 +2686,20 @@
       return markdownService.escapeHtml(String(value || ""));
     },
 
-    buildPhaseThreeModeForm(config, modeId, selection) {
+    buildPhaseThreeModeForm(config, modeId, selection, missingFields = []) {
       if (!modeId) {
         return "<p>Selecione um modo de avaliação para preencher os dados do candidato.</p>";
       }
 
+      const labelClass = (field) => (missingFields.includes(field) ? ' class="field-missing"' : "");
+
       if (modeId === "squad") {
         return `
           <div class="phase-three-form-grid">
-            <label><span>Nome do squad</span><input type="text" data-phase-three-field="teamName" value="${this.escapeHtml(selection.teamName || "")}"></label>
-            <label><span>Membros (nomes e funções)</span><textarea data-phase-three-field="members">${this.escapeHtml(selection.members || "")}</textarea></label>
-            <label><span>Contexto operacional atual</span><textarea data-phase-three-field="operationalContext">${this.escapeHtml(selection.operationalContext || "")}</textarea></label>
-            <label><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
+            <label${labelClass("teamName")}><span>Nome do squad</span><input type="text" data-phase-three-field="teamName" value="${this.escapeHtml(selection.teamName || "")}"></label>
+            <label${labelClass("members")}><span>Membros (nomes e funções)</span><textarea data-phase-three-field="members">${this.escapeHtml(selection.members || "")}</textarea></label>
+            <label${labelClass("operationalContext")}><span>Contexto operacional atual</span><textarea data-phase-three-field="operationalContext">${this.escapeHtml(selection.operationalContext || "")}</textarea></label>
+            <label${labelClass("rationale")}><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
           </div>
         `;
       }
@@ -2533,20 +2707,20 @@
       if (modeId === "individuos") {
         return `
           <div class="phase-three-form-grid">
-            <label><span>Nome do responsável técnico</span><input type="text" data-phase-three-field="leadName" value="${this.escapeHtml(selection.leadName || "")}"></label>
-            <label><span>Lista de indivíduos (nome, função, senioridade)</span><textarea data-phase-three-field="individuals">${this.escapeHtml(selection.individuals || "")}</textarea></label>
-            <label><span>Escopo inicial do piloto</span><textarea data-phase-three-field="pilotScope">${this.escapeHtml(selection.pilotScope || "")}</textarea></label>
-            <label><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
+            <label${labelClass("leadName")}><span>Nome do responsável técnico</span><input type="text" data-phase-three-field="leadName" value="${this.escapeHtml(selection.leadName || "")}"></label>
+            <label${labelClass("individuals")}><span>Lista de indivíduos (nome, função, senioridade)</span><textarea data-phase-three-field="individuals">${this.escapeHtml(selection.individuals || "")}</textarea></label>
+            <label${labelClass("pilotScope")}><span>Escopo inicial do piloto</span><textarea data-phase-three-field="pilotScope">${this.escapeHtml(selection.pilotScope || "")}</textarea></label>
+            <label${labelClass("rationale")}><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
           </div>
         `;
       }
 
       return `
         <div class="phase-three-form-grid">
-          <label><span>Nome da liderança responsável</span><input type="text" data-phase-three-field="managerName" value="${this.escapeHtml(selection.managerName || "")}"></label>
-          <label><span>Contexto de governança</span><textarea data-phase-three-field="governanceContext">${this.escapeHtml(selection.governanceContext || "")}</textarea></label>
-          <label><span>Estrutura do time piloto</span><textarea data-phase-three-field="teamStructure">${this.escapeHtml(selection.teamStructure || "")}</textarea></label>
-          <label><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
+          <label${labelClass("managerName")}><span>Nome da liderança responsável</span><input type="text" data-phase-three-field="managerName" value="${this.escapeHtml(selection.managerName || "")}"></label>
+          <label${labelClass("governanceContext")}><span>Contexto de governança</span><textarea data-phase-three-field="governanceContext">${this.escapeHtml(selection.governanceContext || "")}</textarea></label>
+          <label${labelClass("teamStructure")}><span>Estrutura do time piloto</span><textarea data-phase-three-field="teamStructure">${this.escapeHtml(selection.teamStructure || "")}</textarea></label>
+          <label${labelClass("rationale")}><span>Racional da escolha</span><textarea data-phase-three-field="rationale">${this.escapeHtml(selection.rationale || "")}</textarea></label>
         </div>
       `;
     },
@@ -2593,6 +2767,18 @@
       const stepKey = "fase-4";
       const current = this.state.phaseSelections[stepKey] || {};
       if (Array.isArray(current.backlogItems) && current.backlogItems.length) {
+        const hasMissingIds = current.backlogItems.some(
+          (item) => !(item && typeof item.id === "string" && item.id)
+        );
+        if (hasMissingIds) {
+          this.state.phaseSelections[stepKey] = {
+            ...current,
+            backlogItems: current.backlogItems.map((item, index) => ({
+              ...(item && typeof item === "object" ? item : {}),
+              id: item && typeof item.id === "string" && item.id ? item.id : `f4-restored-${index + 1}`
+            }))
+          };
+        }
         return;
       }
 
@@ -2610,14 +2796,44 @@
       };
     },
 
-    renderPhaseFourItemRow(config, item) {
-      const trilhaOptions = config.trilhas.map((trilha) => {
-        const selected = item.trilhaId === trilha.id ? "selected" : "";
-        return `<option value="${this.escapeHtml(trilha.id)}" ${selected}>${this.escapeHtml(trilha.label)}</option>`;
-      }).join("");
+    buildPhaseFourItemError(issues, descricao = "") {
+      if (!issues) {
+        return "";
+      }
+      if (issues.emptyDescription) {
+        return "Descreva o gargalo (campo obrigatório).";
+      }
+      if (issues.tooLong) {
+        return `Descrição acima de 240 caracteres (atual: ${String(descricao).trim().length}).`;
+      }
+      if (issues.unknownTrack) {
+        return "Selecione uma trilha válida.";
+      }
+      if (issues.invalidScores) {
+        return "Defina impacto, esforço e risco entre 1 e 3.";
+      }
+      if (issues.duplicate) {
+        return "Item duplicado nesta trilha — ajuste a descrição ou remova.";
+      }
+      return "";
+    },
+
+    renderPhaseFourItemRow(config, item, diagnostics = null) {
+      const issues = diagnostics?.issuesById?.[item.id] || null;
+      const hasProblem = Boolean(issues && (issues.hasIssues || issues.duplicate));
+      const descricao = typeof item.descricao === "string" ? item.descricao : "";
+      const errorMessage = this.buildPhaseFourItemError(issues, descricao);
+      const unknownTrack = Boolean(issues?.unknownTrack);
+      const trilhaOptions = [
+        unknownTrack ? '<option value="" selected disabled>Selecione a trilha</option>' : "",
+        ...config.trilhas.map((trilha) => {
+          const selected = !unknownTrack && item.trilhaId === trilha.id ? "selected" : "";
+          return `<option value="${this.escapeHtml(trilha.id)}" ${selected}>${this.escapeHtml(trilha.label)}</option>`;
+        })
+      ].join("");
 
       return `
-        <article class="phase-four-item" data-phase-four-item-id="${this.escapeHtml(item.id)}">
+        <article class="phase-four-item${hasProblem ? " phase-four-item--invalid" : ""}" data-phase-four-item-id="${this.escapeHtml(item.id)}">
           <div class="phase-four-item-head">
             <select data-phase-four-field="trilhaId" data-phase-four-item-id="${this.escapeHtml(item.id)}">
               ${trilhaOptions}
@@ -2630,7 +2846,11 @@
             data-phase-four-field="descricao"
             data-phase-four-item-id="${this.escapeHtml(item.id)}"
             maxlength="240"
-          >${this.escapeHtml(item.descricao)}</textarea>
+          >${this.escapeHtml(descricao)}</textarea>
+          <div class="phase-four-item-meta">
+            <p class="phase-four-item-error" data-item-error${errorMessage ? "" : " hidden"}>${this.escapeHtml(errorMessage)}</p>
+            <span class="phase-four-char-counter${descricao.length >= 220 ? " is-limit" : ""}" data-item-char-counter>${descricao.length}/240</span>
+          </div>
           <div class="phase-four-score-grid">
             ${["impacto", "esforco", "risco"].map((field) => `
               <label>
@@ -2644,6 +2864,46 @@
             `).join("")}
           </div>
         </article>
+      `;
+    },
+
+    renderPhaseFourPrioritization(config, prioritizedItems = []) {
+      if (!prioritizedItems.length) {
+        return "<p>Adicione itens válidos para visualizar a priorização.</p>";
+      }
+
+      return `
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Gargalo</th>
+                <th>Trilha</th>
+                <th>Impacto</th>
+                <th>Esforço</th>
+                <th>Risco</th>
+                <th>Score</th>
+                <th>Classe</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${prioritizedItems.map((item) => {
+                const trilha = config.trilhas.find((entry) => entry.id === item.trilhaId);
+                return `
+                  <tr>
+                    <td>${this.escapeHtml(item.descricao)}</td>
+                    <td>${this.escapeHtml(trilha?.label || item.trilhaId)}</td>
+                    <td>${item.impacto}</td>
+                    <td>${item.esforco}</td>
+                    <td>${item.risco}</td>
+                    <td>${item.score}</td>
+                    <td>${this.escapeHtml(item.priority.label)}</td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
       `;
     },
 
@@ -2667,35 +2927,99 @@
       `).join("");
     },
 
-    async renderPhaseFourInteractive() {
-      const config = await phaseFourService.loadConfig();
+    computePhaseFourDerived(config) {
       const stepKey = "fase-4";
-      this.ensurePhaseFourState(config);
       const selections = this.state.phaseSelections[stepKey] || {};
       const rawItems = Array.isArray(selections.backlogItems) ? selections.backlogItems : [];
-      const sanitizedItems = phaseFourService.sanitizeBacklog(rawItems);
-      const invalidCount = Math.max(0, rawItems.length - sanitizedItems.length);
-      const prioritization = phaseFourService.calculatePrioritization(config, rawItems);
+      const diagnostics = phaseFourService.getBacklogDiagnostics(config, rawItems);
+      const invalidCount = diagnostics.invalidIds.length;
+      const duplicateCount = diagnostics.duplicateIds.length;
+      const prioritization = phaseFourService.calculatePrioritization(config, diagnostics.validItems);
       const roadmap = phaseFourService.buildRoadmap(config, prioritization.prioritizedItems);
-      const trackCount = config.trilhas.reduce((acc, trilha) => {
-        acc[trilha.id] = sanitizedItems.filter((item) => item.trilhaId === trilha.id).length;
-        return acc;
-      }, {});
-      const hasMinimumByTrack = config.trilhas.every((trilha) => (trackCount[trilha.id] || 0) >= 1);
+      const hasMinimumByTrack = diagnostics.missingTracks.length === 0;
 
       this.state.phaseResults[stepKey] = {
         invalidCount,
-        sanitizedCount: sanitizedItems.length,
+        duplicateCount,
+        sanitizedCount: diagnostics.validItems.length,
         hasMinimumByTrack,
-        trackCount,
+        trackCount: diagnostics.trackCount,
         prioritizedItems: prioritization.prioritizedItems,
         roadmap,
         roadmapItemCount: roadmap.d30.length + roadmap.d90.length + roadmap.d180.length
       };
 
       this.state.phaseAnswers[stepKey] = {
-        backlogItems: sanitizedItems
+        backlogItems: diagnostics.validItems
       };
+
+      return { rawItems, diagnostics, invalidCount, duplicateCount, prioritization, roadmap };
+    },
+
+    buildPhaseFourHint(derived) {
+      return `Itens válidos: ${derived.diagnostics.validItems.length} | Inválidos: ${derived.invalidCount} | Duplicados: ${derived.duplicateCount}`;
+    },
+
+    refreshPhaseFourItemMarkers(diagnostics) {
+      const rows = dom.diagnosisInteractive?.querySelectorAll?.(".phase-four-item") || [];
+      rows.forEach((row) => {
+        const itemId = row.dataset?.phaseFourItemId;
+        const issues = diagnostics.issuesById[itemId] || null;
+        const hasProblem = Boolean(issues && (issues.hasIssues || issues.duplicate));
+        row.classList.toggle("phase-four-item--invalid", hasProblem);
+
+        const textarea = row.querySelector('[data-phase-four-field="descricao"]');
+        const descricao = textarea ? textarea.value : "";
+
+        const error = row.querySelector("[data-item-error]");
+        if (error) {
+          const message = this.buildPhaseFourItemError(issues, descricao);
+          error.textContent = message;
+          if (message) {
+            error.removeAttribute("hidden");
+          } else {
+            error.setAttribute("hidden", "hidden");
+          }
+        }
+
+        const counter = row.querySelector("[data-item-char-counter]");
+        if (counter) {
+          counter.textContent = `${descricao.length}/240`;
+          counter.classList.toggle("is-limit", descricao.length >= 220);
+        }
+      });
+    },
+
+    refreshPhaseFourDerivedView(config) {
+      const derived = this.computePhaseFourDerived(config);
+
+      const hint = dom.diagnosisInteractive?.querySelector?.("[data-phase-four-hint]");
+      if (hint) {
+        hint.textContent = this.buildPhaseFourHint(derived);
+      }
+
+      const prioritizationBox = dom.diagnosisInteractive?.querySelector?.("[data-phase-four-prioritization]");
+      if (prioritizationBox) {
+        prioritizationBox.innerHTML = this.renderPhaseFourPrioritization(config, derived.prioritization.prioritizedItems);
+      }
+
+      const roadmapBox = dom.diagnosisInteractive?.querySelector?.("[data-phase-four-roadmap]");
+      if (roadmapBox) {
+        roadmapBox.innerHTML = this.renderPhaseFourRoadmap(config, derived.roadmap);
+      }
+
+      this.refreshPhaseFourItemMarkers(derived.diagnostics);
+      this.renderPendingPanel().catch(() => {});
+      this.updateButtons();
+      storageService.saveState(this.state);
+    },
+
+    async renderPhaseFourInteractive() {
+      const config = await phaseFourService.loadConfig();
+      const stepKey = "fase-4";
+      this.ensurePhaseFourState(config);
+      const derived = this.computePhaseFourDerived(config);
+      const { rawItems, diagnostics, prioritization, roadmap } = derived;
 
       dom.diagnosisInteractive.removeAttribute("hidden");
       dom.diagnosisInteractive.innerHTML = `
@@ -2721,57 +3045,19 @@
               <button type="button" class="btn btn-primary" data-phase-four-add>Adicionar gargalo</button>
             </div>
             <div class="phase-four-list">
-              ${rawItems.map((item) => this.renderPhaseFourItemRow(config, item)).join("")}
+              ${rawItems.map((item) => this.renderPhaseFourItemRow(config, item, diagnostics)).join("")}
             </div>
-            <p class="phase-four-hint">
-              Itens válidos: ${sanitizedItems.length} | Itens inválidos: ${invalidCount}
-            </p>
+            <p class="phase-four-hint" data-phase-four-hint>${this.buildPhaseFourHint(derived)}</p>
           </section>
 
           <section class="phase-four-card">
             <h4>3) Priorização automática</h4>
-            ${
-              prioritization.prioritizedItems.length
-                ? `
-                  <div class="table-wrap">
-                    <table>
-                      <thead>
-                        <tr>
-                          <th>Gargalo</th>
-                          <th>Trilha</th>
-                          <th>Impacto</th>
-                          <th>Esforço</th>
-                          <th>Risco</th>
-                          <th>Score</th>
-                          <th>Classe</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${prioritization.prioritizedItems.map((item) => {
-                          const trilha = config.trilhas.find((entry) => entry.id === item.trilhaId);
-                          return `
-                            <tr>
-                              <td>${this.escapeHtml(item.descricao)}</td>
-                              <td>${this.escapeHtml(trilha?.label || item.trilhaId)}</td>
-                              <td>${item.impacto}</td>
-                              <td>${item.esforco}</td>
-                              <td>${item.risco}</td>
-                              <td>${item.score}</td>
-                              <td>${this.escapeHtml(item.priority.label)}</td>
-                            </tr>
-                          `;
-                        }).join("")}
-                      </tbody>
-                    </table>
-                  </div>
-                `
-                : "<p>Adicione itens válidos para visualizar a priorização.</p>"
-            }
+            <div data-phase-four-prioritization>${this.renderPhaseFourPrioritization(config, prioritization.prioritizedItems)}</div>
           </section>
 
           <section class="phase-four-card">
             <h4>4) Plano 30/90/180</h4>
-            <div class="phase-four-roadmap">
+            <div class="phase-four-roadmap" data-phase-four-roadmap>
               ${this.renderPhaseFourRoadmap(config, roadmap)}
             </div>
           </section>
@@ -2818,7 +3104,7 @@
             backlogItems: updatedItems
           };
           this.clearGateMessage();
-          this.render();
+          this.refreshPhaseFourDerivedView(config);
         });
       });
 
@@ -3417,8 +3703,7 @@
 
     },
 
-    async renderPhaseThreeInteractive() {
-      const config = await phaseThreeService.loadConfig();
+    computePhaseThreeDerived(config) {
       const stepKey = "fase-3";
       const answers = this.state.phaseAnswers[stepKey] || {};
       const selection = this.state.phaseSelections[stepKey] || {};
@@ -3435,6 +3720,42 @@
         recommendations
       };
       this.state.phaseReports[stepKey] = report;
+
+      return { result, recommendations, validation, report };
+    },
+
+    refreshPhaseThreeDerivedView(config) {
+      const { result, recommendations, validation, report } = this.computePhaseThreeDerived(config);
+
+      const card = dom.diagnosisInteractive?.querySelector?.("[data-phase-three-report-card]");
+      if (card) {
+        card.classList.toggle("locked", !report);
+        const reportBox = card.querySelector("[data-phase-three-report]");
+        if (reportBox) {
+          reportBox.innerHTML = this.renderPhaseThreeReport(result, report, recommendations);
+        }
+      }
+
+      const missingFields = validation.missingFields || [];
+      const fields = dom.diagnosisInteractive?.querySelectorAll?.("[data-phase-three-field]") || [];
+      fields.forEach((input) => {
+        const label = typeof input.closest === "function" ? input.closest("label") : null;
+        if (label) {
+          label.classList.toggle("field-missing", missingFields.includes(input.dataset.phaseThreeField));
+        }
+      });
+
+      this.renderPendingPanel().catch(() => {});
+      this.updateButtons();
+      storageService.saveState(this.state);
+    },
+
+    async renderPhaseThreeInteractive() {
+      const config = await phaseThreeService.loadConfig();
+      const stepKey = "fase-3";
+      const answers = this.state.phaseAnswers[stepKey] || {};
+      const selection = this.state.phaseSelections[stepKey] || {};
+      const { result, recommendations, validation, report } = this.computePhaseThreeDerived(config);
 
       dom.diagnosisInteractive.removeAttribute("hidden");
       dom.diagnosisInteractive.innerHTML = `
@@ -3462,7 +3783,7 @@
               }).join("")}
             </div>
             <div class="phase-three-form">
-              ${this.buildPhaseThreeModeForm(config, selection.mode, selection)}
+              ${this.buildPhaseThreeModeForm(config, selection.mode, selection, validation.missingFields || [])}
             </div>
           </section>
 
@@ -3494,9 +3815,9 @@
             </div>
           </section>
 
-          <section class="phase-three-card${report ? "" : " locked"}">
+          <section class="phase-three-card${report ? "" : " locked"}" data-phase-three-report-card>
             <h4>3) Resumo executivo + checklist</h4>
-            ${this.renderPhaseThreeReport(result, report, recommendations)}
+            <div data-phase-three-report>${this.renderPhaseThreeReport(result, report, recommendations)}</div>
           </section>
         </div>
       `;
@@ -3523,7 +3844,7 @@
             [field]: event.target.value
           };
           this.clearGateMessage();
-          this.render();
+          this.refreshPhaseThreeDerivedView(config);
         });
       });
 

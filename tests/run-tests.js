@@ -68,6 +68,7 @@ const elements = {
   "#criteriaContent": createElement(),
   "#diagnosisInteractive": createElement(),
   "#phaseAcknowledgment": createElement(),
+  "#pendingPanel": createElement(),
   "#gateMessage": createElement(),
   "#backButton": createElement(),
   "#exportButton": createElement(),
@@ -770,11 +771,157 @@ async function testPhaseFourGate() {
     "fase-4": {
       hasMinimumByTrack: true,
       invalidCount: 0,
+      duplicateCount: 0,
       roadmapItemCount: 3
     }
   };
   wizardController.state.phaseAcknowledged = { "fase-4": true };
   assert(wizardController.isPhaseFourGateSatisfied(), "phase 4 gate must pass when complete");
+
+  wizardController.state.phaseResults["fase-4"].duplicateCount = 1;
+  assert(!wizardController.isPhaseFourGateSatisfied(), "phase 4 gate must fail with duplicated items");
+}
+
+function buildPhaseFourTestConfig() {
+  return {
+    regrasPontuacao: {
+      formula: "(impacto*3)+((4-esforco)*2)+(risco*2)",
+      classificacao: {
+        critical: { label: "Crítico", min: 11, max: 15 },
+        medium: { label: "Médio", min: 7, max: 10 }
+      }
+    },
+    trilhas: [
+      { id: "tecnica", label: "Trilha Técnica" },
+      { id: "organizacional", label: "Trilha Organizacional" },
+      { id: "cultura", label: "Trilha Cultura" }
+    ],
+    marcos: [
+      { id: "d30", label: "+30 dias", foco: "f", criterioConclusao: "c" },
+      { id: "d90", label: "+90 dias", foco: "f", criterioConclusao: "c" },
+      { id: "d180", label: "+180 dias", foco: "f", criterioConclusao: "c" }
+    ]
+  };
+}
+
+function testPhaseFourBacklogDiagnostics() {
+  const config = buildPhaseFourTestConfig();
+  const items = [
+    { id: "a", trilhaId: "tecnica", descricao: "Pipeline lento", impacto: 3, esforco: 1, risco: 3 },
+    { id: "b", trilhaId: "tecnica", descricao: "pipeline LENTO", impacto: 2, esforco: 2, risco: 2 },
+    { id: "c", trilhaId: "cultura", descricao: "", impacto: 2, esforco: 2, risco: 2 },
+    { id: "d", trilhaId: "organizacional", descricao: "x".repeat(241), impacto: 2, esforco: 2, risco: 2 },
+    { id: "e", trilhaId: "inexistente", descricao: "Trilha desconhecida", impacto: 2, esforco: 2, risco: 2 }
+  ];
+
+  const diagnostics = phaseFourService.getBacklogDiagnostics(config, items);
+  assert(diagnostics.validItems.length === 1, "diagnostics must keep only valid unique items");
+  assert(diagnostics.invalidIds.includes("c"), "empty description must be invalid");
+  assert(diagnostics.invalidIds.includes("d"), "241+ chars description must be invalid");
+  assert(diagnostics.invalidIds.includes("e"), "unknown track must be invalid");
+  assert(diagnostics.duplicateIds.includes("b"), "same track + description must be duplicate");
+  assert(!diagnostics.invalidIds.includes("b"), "duplicate must not be counted as invalid");
+  assert(diagnostics.issuesById.c.emptyDescription, "must flag empty description issue");
+  assert(diagnostics.issuesById.d.tooLong, "must flag too-long description issue");
+  assert(diagnostics.issuesById.e.unknownTrack, "must flag unknown track issue");
+  assert(diagnostics.issuesById.b.duplicate, "must flag duplicate issue");
+  assert(diagnostics.trackCount.tecnica === 1, "track count must include valid item");
+  assert(diagnostics.missingTracks.length === 2, "tracks without valid items must be missing");
+}
+
+function testPhaseFourPendingItems() {
+  const config = buildPhaseFourTestConfig();
+
+  const pending = phaseFourService.getPendingItems(config, {
+    backlogItems: [
+      { id: "a", trilhaId: "tecnica", descricao: "Pipeline lento", impacto: 3, esforco: 1, risco: 3 },
+      { id: "b", trilhaId: "tecnica", descricao: "Pipeline lento", impacto: 2, esforco: 2, risco: 2 },
+      { id: "c", trilhaId: "cultura", descricao: "", impacto: 2, esforco: 2, risco: 2 }
+    ],
+    acknowledged: false
+  });
+
+  assert(pending.some((item) => item.label.includes("trilha Trilha Organizacional")), "must list missing track");
+  assert(pending.some((item) => item.label.includes("trilha Trilha Cultura")), "must list track without valid item");
+  assert(pending.some((item) => item.label.includes("inválid")), "must list invalid items");
+  assert(pending.some((item) => item.label.includes("duplicad")), "must list duplicated items");
+  assert(pending.some((item) => item.label.includes("Marque a confirmação")), "must list acknowledgment");
+
+  const completePending = phaseFourService.getPendingItems(config, {
+    backlogItems: [
+      { id: "a", trilhaId: "tecnica", descricao: "Pipeline lento", impacto: 2, esforco: 2, risco: 2 },
+      { id: "b", trilhaId: "organizacional", descricao: "Aprovação demorada", impacto: 2, esforco: 2, risco: 2 },
+      { id: "c", trilhaId: "cultura", descricao: "Resistência à IA", impacto: 2, esforco: 2, risco: 2 }
+    ],
+    acknowledged: true
+  });
+  assert(completePending.length === 0, "complete backlog must produce no pending items");
+}
+
+async function testPhaseFourDuplicateGateRegression() {
+  const config = buildPhaseFourTestConfig();
+  wizardController.state = {
+    currentStep: 3,
+    completedSteps: new Set([0, 1, 2]),
+    phaseAnswers: {},
+    phaseSelections: {
+      "fase-4": {
+        backlogItems: [
+          { id: "a", trilhaId: "tecnica", descricao: "Pipeline lento", impacto: 2, esforco: 2, risco: 2 },
+          { id: "b", trilhaId: "tecnica", descricao: "pipeline lento", impacto: 3, esforco: 1, risco: 3 },
+          { id: "c", trilhaId: "organizacional", descricao: "Aprovação demorada", impacto: 2, esforco: 2, risco: 2 },
+          { id: "d", trilhaId: "cultura", descricao: "Resistência à IA", impacto: 2, esforco: 2, risco: 2 }
+        ]
+      }
+    },
+    phaseResults: {},
+    phaseReports: {},
+    phaseAcknowledged: { "fase-4": true }
+  };
+
+  wizardController.computePhaseFourDerived(config);
+  const result = wizardController.state.phaseResults["fase-4"];
+  assert(result.invalidCount === 0, "fully filled duplicates must not count as invalid");
+  assert(result.duplicateCount === 1, "duplicated item must be counted separately");
+  assert(result.hasMinimumByTrack, "duplicate must not remove track coverage");
+  assert(!wizardController.isPhaseFourGateSatisfied(), "gate must stay blocked with duplicates");
+
+  const message = await wizardController.buildPhaseFourGateMessage();
+  assert(message.includes("duplicad"), "gate message must explain duplication");
+  assert(!message.includes("inválid"), "gate message must not mislabel duplicates as invalid");
+}
+
+function testPhaseFourDerivedRecompute() {
+  const config = buildPhaseFourTestConfig();
+  wizardController.state = {
+    currentStep: 3,
+    completedSteps: new Set([0, 1, 2]),
+    phaseAnswers: {},
+    phaseSelections: {
+      "fase-4": {
+        backlogItems: [
+          { id: "a", trilhaId: "tecnica", descricao: "Pipeline lento", impacto: 2, esforco: 2, risco: 2 },
+          { id: "b", trilhaId: "organizacional", descricao: "Aprovação demorada", impacto: 2, esforco: 2, risco: 2 },
+          { id: "c", trilhaId: "cultura", descricao: "", impacto: 2, esforco: 2, risco: 2 }
+        ]
+      }
+    },
+    phaseResults: {},
+    phaseReports: {},
+    phaseAcknowledged: { "fase-4": true }
+  };
+
+  wizardController.computePhaseFourDerived(config);
+  assert(wizardController.state.phaseResults["fase-4"].invalidCount === 1, "empty description must be invalid before typing");
+  assert(!wizardController.isPhaseFourGateSatisfied(), "gate must fail while an item is invalid");
+
+  wizardController.state.phaseSelections["fase-4"].backlogItems[2].descricao = "Resistência à IA";
+  wizardController.computePhaseFourDerived(config);
+  const result = wizardController.state.phaseResults["fase-4"];
+  assert(result.invalidCount === 0, "typed description must clear invalid count");
+  assert(result.hasMinimumByTrack, "all tracks must be covered after typing");
+  assert(result.roadmapItemCount === 3, "roadmap must include all valid items");
+  assert(wizardController.isPhaseFourGateSatisfied(), "gate must pass after typing the missing description");
 }
 
 function testPhaseTwoScoreAndGate() {
@@ -836,8 +983,8 @@ function testPhaseTwoScoreAndGate() {
   assert(!wizardController.isPhaseTwoGateSatisfied(), "phase 2 gate must fail without ack");
 }
 
-function testPhaseThreeScoreAndGate() {
-  const config = {
+function buildPhaseThreeTestConfig() {
+  return {
     scoreBands: [
       { id: "baixo", label: "Baixo", min: 0, max: 1.67 },
       { id: "medio", label: "Médio", min: 1.67, max: 2.34 },
@@ -846,7 +993,12 @@ function testPhaseThreeScoreAndGate() {
     impactPriority: ["autonomia", "feedbackSpeed", "senioridade"],
     inputModes: [{ id: "squad", label: "Por squad" }],
     requiredFieldsByMode: { squad: ["teamName", "members", "operationalContext", "rationale"] },
-    fieldLabels: { teamName: "Nome do squad" },
+    fieldLabels: {
+      teamName: "Nome do squad",
+      members: "Membros",
+      operationalContext: "Contexto operacional",
+      rationale: "Racional da escolha"
+    },
     dimensions: [
       {
         id: "autonomia",
@@ -904,6 +1056,10 @@ function testPhaseThreeScoreAndGate() {
     kickoffChecklist: ["c1"],
     expansionCriteria: { baixo: ["e1"], medio: ["e2"], alto: ["e3"] }
   };
+}
+
+function testPhaseThreeScoreAndGate() {
+  const config = buildPhaseThreeTestConfig();
 
   const answers = {
     autonomia: "alto",
@@ -940,6 +1096,128 @@ function testPhaseThreeScoreAndGate() {
 
   wizardController.state.phaseAcknowledged = { "fase-3": false };
   assert(!wizardController.isPhaseThreeGateSatisfied(), "phase 3 gate must fail without acknowledgment");
+}
+
+function testPhaseThreePendingItems() {
+  const config = buildPhaseThreeTestConfig();
+
+  const emptyPending = phaseThreeService.getPendingItems(config, {
+    answers: {},
+    selection: {},
+    acknowledged: false
+  });
+  assert(emptyPending.some((item) => item.id === "mode"), "empty state must ask for mode");
+  assert(
+    emptyPending.some((item) => item.id === "dimensions" && item.label.includes("faltam 5")),
+    "empty state must count 5 missing dimensions"
+  );
+  assert(emptyPending.some((item) => item.id === "acknowledgment"), "empty state must ask for acknowledgment");
+
+  const partialPending = phaseThreeService.getPendingItems(config, {
+    answers: { autonomia: "alto" },
+    selection: { mode: "squad", teamName: "Squad X", rationale: "   " },
+    acknowledged: false
+  });
+  assert(!partialPending.some((item) => item.id === "mode"), "selected mode must not be pending");
+  assert(
+    partialPending.some((item) => item.field === "rationale" && item.label.includes("Racional")),
+    "whitespace-only rationale must stay pending"
+  );
+  assert(partialPending.some((item) => item.field === "members"), "empty field must stay pending");
+  assert(
+    partialPending.some((item) => item.id === "dimensions" && item.label.includes("faltam 4")),
+    "partial answers must count remaining dimensions"
+  );
+
+  const completePending = phaseThreeService.getPendingItems(config, {
+    answers: {
+      autonomia: "alto",
+      feedbackSpeed: "medio",
+      senioridade: "medio",
+      segurancaPsicologica: "alto",
+      estabilidadeRoadmap: "medio"
+    },
+    selection: {
+      mode: "squad",
+      teamName: "Squad X",
+      members: "Ana, Bruno",
+      operationalContext: "Contexto",
+      rationale: "Racional"
+    },
+    acknowledged: true
+  });
+  assert(completePending.length === 0, "complete phase 3 must produce no pending items");
+}
+
+function testPhaseThreeDerivedRecompute() {
+  const config = buildPhaseThreeTestConfig();
+  wizardController.state = {
+    currentStep: 2,
+    completedSteps: new Set([0, 1]),
+    phaseAnswers: {
+      "fase-3": {
+        autonomia: "alto",
+        feedbackSpeed: "medio",
+        senioridade: "medio",
+        segurancaPsicologica: "alto",
+        estabilidadeRoadmap: "medio"
+      }
+    },
+    phaseSelections: {
+      "fase-3": {
+        mode: "squad",
+        teamName: "Squad X",
+        members: "Ana, Bruno",
+        operationalContext: "Contexto",
+        rationale: ""
+      }
+    },
+    phaseResults: {},
+    phaseReports: {},
+    phaseAcknowledged: { "fase-3": true }
+  };
+
+  wizardController.computePhaseThreeDerived(config);
+  assert(wizardController.state.phaseReports["fase-3"] === null, "missing rationale must block report");
+  assert(!wizardController.isPhaseThreeGateSatisfied(), "gate must fail without report");
+
+  wizardController.state.phaseSelections["fase-3"].rationale = "Racional";
+  const derived = wizardController.computePhaseThreeDerived(config);
+  assert(derived.report && derived.report.candidateName === "Squad X", "typed rationale must produce report");
+  assert(wizardController.state.phaseReports["fase-3"], "report must be persisted in state");
+  assert(wizardController.isPhaseThreeGateSatisfied(), "gate must pass after typing the missing field");
+}
+
+async function testPendingPanelRender() {
+  const panel = elements["#pendingPanel"];
+
+  wizardController.state = {
+    currentStep: 3,
+    completedSteps: new Set([0, 1, 2]),
+    phaseAnswers: {},
+    phaseSelections: { "fase-4": { backlogItems: [] } },
+    phaseResults: {},
+    phaseReports: {},
+    phaseAcknowledged: { "fase-4": false }
+  };
+  await wizardController.renderPendingPanel();
+  assert(!panel.attributes.hidden, "panel must be visible on implemented phases");
+  assert(panel.innerHTML.includes("pendência"), "panel must announce pending count");
+  assert(panel.innerHTML.includes("ao menos 1 gargalo"), "panel must list missing tracks");
+  assert(panel.innerHTML.includes("Marque a confirmação"), "panel must list acknowledgment");
+
+  wizardController.state.phaseSelections["fase-4"].backlogItems = [
+    { id: "a", trilhaId: "tecnica", descricao: "Pipeline lento", impacto: 2, esforco: 2, risco: 2 },
+    { id: "b", trilhaId: "organizacional", descricao: "Aprovação demorada", impacto: 2, esforco: 2, risco: 2 },
+    { id: "c", trilhaId: "cultura", descricao: "Resistência à IA", impacto: 2, esforco: 2, risco: 2 }
+  ];
+  wizardController.state.phaseAcknowledged["fase-4"] = true;
+  await wizardController.renderPendingPanel();
+  assert(panel.innerHTML.includes("Tudo certo"), "panel must confirm completion");
+
+  wizardController.state.currentStep = 0;
+  await wizardController.renderPendingPanel();
+  assert(panel.attributes.hidden === "hidden", "panel must hide on phases without pending support");
 }
 
 function testPhaseFiveTemplateAndCalibration() {
@@ -1503,8 +1781,15 @@ async function run() {
     testPhaseFourSanitizeAndPrioritization,
     testPhaseFourRoadmap,
     testPhaseFourGate,
+    testPhaseFourBacklogDiagnostics,
+    testPhaseFourPendingItems,
+    testPhaseFourDuplicateGateRegression,
+    testPhaseFourDerivedRecompute,
     testPhaseTwoScoreAndGate,
     testPhaseThreeScoreAndGate,
+    testPhaseThreePendingItems,
+    testPhaseThreeDerivedRecompute,
+    testPendingPanelRender,
     testPhaseFiveTemplateAndCalibration,
     testPhaseFiveValidationAndGate,
     testPhaseFiveLocalizedLabelsRender,
